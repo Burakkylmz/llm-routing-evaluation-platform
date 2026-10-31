@@ -1,0 +1,19 @@
+{
+  "dataset_version": "synthetic-demo-v1",
+  "cases": [
+    {
+      "case_id": "demo-card-001",
+      "input_text": "Banka kartı ile kredi kartı arasındaki fark nedir?",
+      "domain": "turkish_banking",
+      "scenario_type": "card_general",
+      "metadata": {"synthetic": true}
+    },
+    {
+      "case_id": "demo-account-002",
+      "input_text": "Banka hesabı açmak için genel süreç nedir?",
+      "domain": "turkish_banking",
+      "scenario_type": "account_general",
+      "metadata": {"synthetic": true}
+    }
+  ]
+}

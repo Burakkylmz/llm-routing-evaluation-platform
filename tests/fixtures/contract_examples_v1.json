@@ -1,0 +1,158 @@
+{
+  "BenchmarkCase": {
+    "schema_version": "1.0.0",
+    "case_id": "dev-card-001",
+    "input_text": "Kredi kartı yıllık ücreti nedir?",
+    "domain": "turkish_banking",
+    "scenario_type": "card_fee",
+    "metadata": {
+      "synthetic": true
+    },
+    "locale": "tr-TR"
+  },
+  "GoldenReference": {
+    "schema_version": "1.0.0",
+    "case_id": "dev-card-001",
+    "dataset_version": "dev-fixtures-v1",
+    "expected_facts": [
+      "Ücretler ürün koşullarına bağlı olabilir."
+    ],
+    "rubric_version": "rubric-v1",
+    "verification_status": "UNREVIEWED",
+    "evidence": [],
+    "reviewed_at": null,
+    "reviewer_role": null
+  },
+  "RoutingDecision": {
+    "schema_version": "1.0.0",
+    "strategy": "always_large",
+    "action": "INVOKE_MODEL",
+    "reason_code": "BASELINE_LARGE",
+    "stage_index": 0,
+    "decision_time_ms": 0.2,
+    "selected_model": "openai/gpt-oss-120b",
+    "safe_reason": null
+  },
+  "ModelResponse": {
+    "schema_version": "1.0.0",
+    "provider": "fake",
+    "model": "openai/gpt-oss-120b",
+    "attempt_id": "attempt-1",
+    "status": "SUCCESS",
+    "metric_origin": "SIMULATED",
+    "content": "Ücret bankaya göre değişebilir.",
+    "usage": {
+      "input_tokens": 12,
+      "output_tokens": 7,
+      "cached_tokens": null,
+      "reasoning_tokens": null
+    },
+    "latency_ms": 1.0,
+    "error": null,
+    "provider_request_id": null
+  },
+  "EvaluationResult": {
+    "schema_version": "1.0.0",
+    "run_id": "example-run",
+    "case_id": "dev-card-001",
+    "trace_id": "example-trace",
+    "quality_scores": {
+      "completeness": 1.0,
+      "safety": null
+    },
+    "critical_errors": [],
+    "evaluation_method": "fixture",
+    "evaluator_version": "fixture-v1",
+    "status": "COMPLETED",
+    "review_status": null,
+    "safe_notes": [],
+    "judge_usage": null
+  },
+  "ExecutionTrace": {
+    "schema_version": "1.0.0",
+    "trace_id": "example-trace",
+    "run_id": "example-run",
+    "case_id": "dev-card-001",
+    "strategy": "always_large",
+    "steps": [
+      {
+        "sequence": 0,
+        "kind": "ROUTING_DECISION",
+        "decision": {
+          "schema_version": "1.0.0",
+          "strategy": "always_large",
+          "action": "INVOKE_MODEL",
+          "reason_code": "BASELINE_LARGE",
+          "stage_index": 0,
+          "decision_time_ms": 0.2,
+          "selected_model": "openai/gpt-oss-120b",
+          "safe_reason": null
+        },
+        "attempt_id": null,
+        "provider": null,
+        "model": null,
+        "call_status": null,
+        "metric_origin": null,
+        "usage": null,
+        "elapsed_ms": null,
+        "error": null,
+        "safe_metadata": {}
+      },
+      {
+        "sequence": 1,
+        "kind": "PROVIDER_ATTEMPT",
+        "decision": null,
+        "attempt_id": "attempt-1",
+        "provider": "fake",
+        "model": "openai/gpt-oss-120b",
+        "call_status": "SUCCESS",
+        "metric_origin": "SIMULATED",
+        "usage": {
+          "input_tokens": 12,
+          "output_tokens": 7,
+          "cached_tokens": null,
+          "reasoning_tokens": null
+        },
+        "elapsed_ms": null,
+        "error": null,
+        "safe_metadata": {}
+      }
+    ],
+    "status": "COMPLETED",
+    "started_at": "2026-10-31T00:00:00Z",
+    "ended_at": null,
+    "total_latency_ms": null,
+    "error": null
+  },
+  "BenchmarkReport": {
+    "schema_version": "1.0.0",
+    "run_id": "example-run",
+    "dataset_version": "dev-fixtures-v1",
+    "configuration_fingerprint": "sha256:example",
+    "strategy_metrics": {
+      "always_large": {
+        "case_count": 1,
+        "successful_cases": 1,
+        "failed_cases": 0,
+        "blocked_cases": 0,
+        "evaluated_cases": 1,
+        "critical_error_cases": 0,
+        "quality_scores": {},
+        "latency_p50_ms": null,
+        "latency_p95_ms": null,
+        "latency_samples": 0,
+        "cost_amount": null,
+        "cost_currency": null,
+        "cost_origin": null,
+        "cost_samples": 0
+      }
+    },
+    "generated_at": "2026-10-31T00:00:00Z",
+    "pricing_version": null,
+    "run_status": "COMPLETED",
+    "limitations": [
+      "Synthetic fake metrics; no live run."
+    ],
+    "provenance": {}
+  }
+}

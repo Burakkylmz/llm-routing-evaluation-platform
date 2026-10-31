@@ -1,0 +1,27 @@
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+.env
+.env.*
+!.env.example
+*.db
+*.sqlite
+*.sqlite3
+results/
+reports/
+outputs/
+.idea/
+.vscode/
+.DS_Store
+
+# Generated local offline demo traces
+artifacts/
+
+# Local duplicate checkout and package build metadata
+/llm-routing-evaluation-platform/
+*.egg-info/

@@ -1,0 +1,463 @@
+{
+  "$defs": {
+    "CallStatus": {
+      "enum": [
+        "SUCCESS",
+        "FAILED",
+        "TIMEOUT",
+        "RATE_LIMITED"
+      ],
+      "title": "CallStatus",
+      "type": "string"
+    },
+    "ErrorCategory": {
+      "enum": [
+        "VALIDATION",
+        "PRIVACY",
+        "PROVIDER",
+        "PROVIDER_TIMEOUT",
+        "RATE_LIMIT",
+        "ROUTING",
+        "EVALUATION",
+        "PERSISTENCE",
+        "UNKNOWN"
+      ],
+      "title": "ErrorCategory",
+      "type": "string"
+    },
+    "ErrorInfo": {
+      "additionalProperties": false,
+      "properties": {
+        "category": {
+          "$ref": "#/$defs/ErrorCategory"
+        },
+        "code": {
+          "minLength": 1,
+          "title": "Code",
+          "type": "string"
+        },
+        "retryable": {
+          "default": false,
+          "title": "Retryable",
+          "type": "boolean"
+        },
+        "safe_message": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Safe Message"
+        }
+      },
+      "required": [
+        "category",
+        "code"
+      ],
+      "title": "ErrorInfo",
+      "type": "object"
+    },
+    "ExecutionStatus": {
+      "enum": [
+        "COMPLETED",
+        "PARTIAL",
+        "FAILED",
+        "BLOCKED"
+      ],
+      "title": "ExecutionStatus",
+      "type": "string"
+    },
+    "JsonValue": {},
+    "MetricOrigin": {
+      "enum": [
+        "SIMULATED",
+        "OBSERVED"
+      ],
+      "title": "MetricOrigin",
+      "type": "string"
+    },
+    "RoutingAction": {
+      "enum": [
+        "INVOKE_MODEL",
+        "FINISH"
+      ],
+      "title": "RoutingAction",
+      "type": "string"
+    },
+    "RoutingDecision": {
+      "additionalProperties": false,
+      "properties": {
+        "schema_version": {
+          "default": "1.0.0",
+          "pattern": "^1\\.0\\.0$",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "strategy": {
+          "$ref": "#/$defs/StrategyId"
+        },
+        "action": {
+          "$ref": "#/$defs/RoutingAction"
+        },
+        "reason_code": {
+          "minLength": 1,
+          "title": "Reason Code",
+          "type": "string"
+        },
+        "stage_index": {
+          "minimum": 0,
+          "title": "Stage Index",
+          "type": "integer"
+        },
+        "decision_time_ms": {
+          "minimum": 0,
+          "title": "Decision Time Ms",
+          "type": "number"
+        },
+        "selected_model": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Selected Model"
+        },
+        "safe_reason": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Safe Reason"
+        }
+      },
+      "required": [
+        "strategy",
+        "action",
+        "reason_code",
+        "stage_index",
+        "decision_time_ms"
+      ],
+      "title": "RoutingDecision",
+      "type": "object"
+    },
+    "StrategyId": {
+      "enum": [
+        "always_large",
+        "rule_based",
+        "knn",
+        "cascade"
+      ],
+      "title": "StrategyId",
+      "type": "string"
+    },
+    "TokenUsage": {
+      "additionalProperties": false,
+      "description": "Counts are nullable; reasoning/cached may overlap other totals.",
+      "properties": {
+        "input_tokens": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Input Tokens"
+        },
+        "output_tokens": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Output Tokens"
+        },
+        "cached_tokens": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Cached Tokens"
+        },
+        "reasoning_tokens": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Reasoning Tokens"
+        }
+      },
+      "title": "TokenUsage",
+      "type": "object"
+    },
+    "TraceStep": {
+      "additionalProperties": false,
+      "description": "Safe audit metadata, deliberately not a raw ModelResponse or prompt.",
+      "properties": {
+        "sequence": {
+          "minimum": 0,
+          "title": "Sequence",
+          "type": "integer"
+        },
+        "kind": {
+          "$ref": "#/$defs/TraceStepKind"
+        },
+        "decision": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/RoutingDecision"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "attempt_id": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Attempt Id"
+        },
+        "provider": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Provider"
+        },
+        "model": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Model"
+        },
+        "call_status": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/CallStatus"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "metric_origin": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/MetricOrigin"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "usage": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/TokenUsage"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "elapsed_ms": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Elapsed Ms"
+        },
+        "error": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ErrorInfo"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "safe_metadata": {
+          "additionalProperties": {
+            "$ref": "#/$defs/JsonValue"
+          },
+          "title": "Safe Metadata",
+          "type": "object"
+        }
+      },
+      "required": [
+        "sequence",
+        "kind"
+      ],
+      "title": "TraceStep",
+      "type": "object"
+    },
+    "TraceStepKind": {
+      "enum": [
+        "ROUTING_DECISION",
+        "PROVIDER_ATTEMPT",
+        "PRIVACY_CHECK",
+        "EVALUATION",
+        "ERROR"
+      ],
+      "title": "TraceStepKind",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "default": "1.0.0",
+      "pattern": "^1\\.0\\.0$",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "trace_id": {
+      "minLength": 1,
+      "title": "Trace Id",
+      "type": "string"
+    },
+    "run_id": {
+      "minLength": 1,
+      "title": "Run Id",
+      "type": "string"
+    },
+    "case_id": {
+      "minLength": 1,
+      "title": "Case Id",
+      "type": "string"
+    },
+    "strategy": {
+      "$ref": "#/$defs/StrategyId"
+    },
+    "steps": {
+      "items": {
+        "$ref": "#/$defs/TraceStep"
+      },
+      "title": "Steps",
+      "type": "array"
+    },
+    "status": {
+      "$ref": "#/$defs/ExecutionStatus"
+    },
+    "started_at": {
+      "format": "date-time",
+      "title": "Started At",
+      "type": "string"
+    },
+    "ended_at": {
+      "anyOf": [
+        {
+          "format": "date-time",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Ended At"
+    },
+    "total_latency_ms": {
+      "anyOf": [
+        {
+          "minimum": 0,
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Total Latency Ms"
+    },
+    "error": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ErrorInfo"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    }
+  },
+  "required": [
+    "trace_id",
+    "run_id",
+    "case_id",
+    "strategy",
+    "steps",
+    "status",
+    "started_at"
+  ],
+  "title": "ExecutionTrace",
+  "type": "object"
+}

@@ -1,0 +1,250 @@
+{
+  "$defs": {
+    "CostOrigin": {
+      "enum": [
+        "BILLED",
+        "ESTIMATED",
+        "SIMULATED",
+        "UNKNOWN"
+      ],
+      "title": "CostOrigin",
+      "type": "string"
+    },
+    "StrategyId": {
+      "enum": [
+        "always_large",
+        "rule_based",
+        "knn",
+        "cascade"
+      ],
+      "title": "StrategyId",
+      "type": "string"
+    },
+    "StrategyMetrics": {
+      "additionalProperties": false,
+      "description": "Unknown latency/quality/cost remains None with explicit observation coverage.",
+      "properties": {
+        "case_count": {
+          "minimum": 0,
+          "title": "Case Count",
+          "type": "integer"
+        },
+        "successful_cases": {
+          "minimum": 0,
+          "title": "Successful Cases",
+          "type": "integer"
+        },
+        "failed_cases": {
+          "minimum": 0,
+          "title": "Failed Cases",
+          "type": "integer"
+        },
+        "blocked_cases": {
+          "minimum": 0,
+          "title": "Blocked Cases",
+          "type": "integer"
+        },
+        "evaluated_cases": {
+          "minimum": 0,
+          "title": "Evaluated Cases",
+          "type": "integer"
+        },
+        "critical_error_cases": {
+          "minimum": 0,
+          "title": "Critical Error Cases",
+          "type": "integer"
+        },
+        "quality_scores": {
+          "additionalProperties": {
+            "anyOf": [
+              {
+                "maximum": 1,
+                "minimum": 0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "propertyNames": {
+            "minLength": 1
+          },
+          "title": "Quality Scores",
+          "type": "object"
+        },
+        "latency_p50_ms": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Latency P50 Ms"
+        },
+        "latency_p95_ms": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Latency P95 Ms"
+        },
+        "latency_samples": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Latency Samples",
+          "type": "integer"
+        },
+        "cost_amount": {
+          "anyOf": [
+            {
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Cost Amount"
+        },
+        "cost_currency": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Cost Currency"
+        },
+        "cost_origin": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/CostOrigin"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "cost_samples": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Cost Samples",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "case_count",
+        "successful_cases",
+        "failed_cases",
+        "blocked_cases",
+        "evaluated_cases",
+        "critical_error_cases"
+      ],
+      "title": "StrategyMetrics",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "default": "1.0.0",
+      "pattern": "^1\\.0\\.0$",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "run_id": {
+      "minLength": 1,
+      "title": "Run Id",
+      "type": "string"
+    },
+    "dataset_version": {
+      "minLength": 1,
+      "title": "Dataset Version",
+      "type": "string"
+    },
+    "configuration_fingerprint": {
+      "minLength": 1,
+      "title": "Configuration Fingerprint",
+      "type": "string"
+    },
+    "strategy_metrics": {
+      "additionalProperties": {
+        "$ref": "#/$defs/StrategyMetrics"
+      },
+      "propertyNames": {
+        "$ref": "#/$defs/StrategyId"
+      },
+      "title": "Strategy Metrics",
+      "type": "object"
+    },
+    "generated_at": {
+      "format": "date-time",
+      "title": "Generated At",
+      "type": "string"
+    },
+    "pricing_version": {
+      "anyOf": [
+        {
+          "minLength": 1,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Pricing Version"
+    },
+    "run_status": {
+      "default": "COMPLETED",
+      "minLength": 1,
+      "title": "Run Status",
+      "type": "string"
+    },
+    "limitations": {
+      "default": [],
+      "items": {
+        "type": "string"
+      },
+      "title": "Limitations",
+      "type": "array"
+    },
+    "provenance": {
+      "additionalProperties": {
+        "type": "string"
+      },
+      "title": "Provenance",
+      "type": "object"
+    }
+  },
+  "required": [
+    "run_id",
+    "dataset_version",
+    "configuration_fingerprint",
+    "strategy_metrics",
+    "generated_at"
+  ],
+  "title": "BenchmarkReport",
+  "type": "object"
+}

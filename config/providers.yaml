@@ -1,0 +1,13 @@
+schema_version: "1.0.0"
+providers:
+  groq:
+    enabled: false
+    api_key_env: GROQ_API_KEY
+    candidate_models:
+      small: openai/gpt-oss-20b
+      large: openai/gpt-oss-120b
+  nvidia_build:
+    enabled: false
+    api_key_env: NVIDIA_API_KEY
+    candidate_models: {}
+# Candidate models and access must be verified before an explicitly enabled live run.

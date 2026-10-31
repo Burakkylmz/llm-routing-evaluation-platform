@@ -1,0 +1,86 @@
+{
+  "$defs": {
+    "RoutingAction": {
+      "enum": [
+        "INVOKE_MODEL",
+        "FINISH"
+      ],
+      "title": "RoutingAction",
+      "type": "string"
+    },
+    "StrategyId": {
+      "enum": [
+        "always_large",
+        "rule_based",
+        "knn",
+        "cascade"
+      ],
+      "title": "StrategyId",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "default": "1.0.0",
+      "pattern": "^1\\.0\\.0$",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "strategy": {
+      "$ref": "#/$defs/StrategyId"
+    },
+    "action": {
+      "$ref": "#/$defs/RoutingAction"
+    },
+    "reason_code": {
+      "minLength": 1,
+      "title": "Reason Code",
+      "type": "string"
+    },
+    "stage_index": {
+      "minimum": 0,
+      "title": "Stage Index",
+      "type": "integer"
+    },
+    "decision_time_ms": {
+      "minimum": 0,
+      "title": "Decision Time Ms",
+      "type": "number"
+    },
+    "selected_model": {
+      "anyOf": [
+        {
+          "minLength": 1,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Selected Model"
+    },
+    "safe_reason": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Safe Reason"
+    }
+  },
+  "required": [
+    "strategy",
+    "action",
+    "reason_code",
+    "stage_index",
+    "decision_time_ms"
+  ],
+  "title": "RoutingDecision",
+  "type": "object"
+}

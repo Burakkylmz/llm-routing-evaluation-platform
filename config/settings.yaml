@@ -1,0 +1,11 @@
+schema_version: "1.0.0"
+execution:
+  mode: offline
+  live_enabled: false
+  max_model_calls_per_case: 2
+  max_retries: 0
+benchmark:
+  strategy: always_large
+  domain: turkish_banking
+  locale: tr-TR
+# Configuration is a design example until the M1 loader exists.

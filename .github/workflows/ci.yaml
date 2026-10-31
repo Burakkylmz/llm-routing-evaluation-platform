@@ -1,0 +1,20 @@
+name: Scaffold Integrity
+on:
+  push:
+  pull_request:
+jobs:
+  structure:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - name: Install Python
+        run: uv python install 3.12
+      - name: Lock integrity
+        run: uv lock --check
+      - name: Sync locked environment
+        run: uv sync --locked
+      - name: Compile scaffold
+        run: uv run --locked python -m compileall -q src
+# Add Ruff, mypy, pytest and contract gates with implementation (M1).
+# CI must never call external providers.

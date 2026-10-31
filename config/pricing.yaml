@@ -1,0 +1,7 @@
+schema_version: "1.0.0"
+currency: USD
+status: unverified
+effective_date: null
+source: null
+rates: {}
+# Do not infer real cost from missing rates or free-tier access.

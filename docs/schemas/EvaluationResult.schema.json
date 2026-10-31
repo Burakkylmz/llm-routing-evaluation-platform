@@ -1,0 +1,181 @@
+{
+  "$defs": {
+    "EvaluationStatus": {
+      "enum": [
+        "COMPLETED",
+        "PARTIAL",
+        "NOT_EVALUATED",
+        "FAILED"
+      ],
+      "title": "EvaluationStatus",
+      "type": "string"
+    },
+    "TokenUsage": {
+      "additionalProperties": false,
+      "description": "Counts are nullable; reasoning/cached may overlap other totals.",
+      "properties": {
+        "input_tokens": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Input Tokens"
+        },
+        "output_tokens": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Output Tokens"
+        },
+        "cached_tokens": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Cached Tokens"
+        },
+        "reasoning_tokens": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Reasoning Tokens"
+        }
+      },
+      "title": "TokenUsage",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "default": "1.0.0",
+      "pattern": "^1\\.0\\.0$",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "run_id": {
+      "minLength": 1,
+      "title": "Run Id",
+      "type": "string"
+    },
+    "case_id": {
+      "minLength": 1,
+      "title": "Case Id",
+      "type": "string"
+    },
+    "trace_id": {
+      "minLength": 1,
+      "title": "Trace Id",
+      "type": "string"
+    },
+    "quality_scores": {
+      "additionalProperties": {
+        "anyOf": [
+          {
+            "maximum": 1,
+            "minimum": 0,
+            "type": "number"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "propertyNames": {
+        "minLength": 1
+      },
+      "title": "Quality Scores",
+      "type": "object"
+    },
+    "critical_errors": {
+      "items": {
+        "minLength": 1,
+        "type": "string"
+      },
+      "title": "Critical Errors",
+      "type": "array"
+    },
+    "evaluation_method": {
+      "minLength": 1,
+      "title": "Evaluation Method",
+      "type": "string"
+    },
+    "evaluator_version": {
+      "minLength": 1,
+      "title": "Evaluator Version",
+      "type": "string"
+    },
+    "status": {
+      "$ref": "#/$defs/EvaluationStatus"
+    },
+    "review_status": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Review Status"
+    },
+    "safe_notes": {
+      "default": [],
+      "items": {
+        "type": "string"
+      },
+      "title": "Safe Notes",
+      "type": "array"
+    },
+    "judge_usage": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/TokenUsage"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    }
+  },
+  "required": [
+    "run_id",
+    "case_id",
+    "trace_id",
+    "quality_scores",
+    "critical_errors",
+    "evaluation_method",
+    "evaluator_version",
+    "status"
+  ],
+  "title": "EvaluationResult",
+  "type": "object"
+}

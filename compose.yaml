@@ -1,0 +1,6 @@
+services:
+  benchmark:
+    build: .
+    environment:
+      BENCHMARK_MODE: offline
+    # No key pass-through or network-dependent benchmark in scaffold.
