@@ -1,4 +1,4 @@
-# LLM Routing Evaluation Platform
+# LLM Routing Evaluation Platform - V1.1
 
 **Status:** Member 01 core + application + CLI **offline demo implemented**. Real routing, provider, privacy, dataset evaluation and durable reporting adapters are not yet implemented.
 
@@ -45,11 +45,11 @@ The initial implementation was checked on Python 3.13.5 with 40 passing tests an
 
 ## Ownership
 
-| Owner | Area |
-| --- | --- |
+| Owner     | Area                                                                 |
+| --------- | -------------------------------------------------------------------- |
 | Member 01 | `core/`, `application/`, `cli/`; `demo/` temporary integration fakes |
-| Member 02 | `routing/`, `adapters/providers/`, `adapters/embeddings/` |
-| Member 03 | `evaluation/`, `domains/turkish_banking/`, labeled datasets |
-| Member 04 | `privacy/`, `reporting/`, `adapters/persistence/`, Docker/CI |
+| Member 02 | `routing/`, `adapters/providers/`, `adapters/embeddings/`            |
+| Member 03 | `evaluation/`, `domains/turkish_banking/`, labeled datasets          |
+| Member 04 | `privacy/`, `reporting/`, `adapters/persistence/`, Docker/CI         |
 
 Interfaces require review by all affected owners before integration.
