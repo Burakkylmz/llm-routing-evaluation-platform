@@ -60,7 +60,8 @@ def demo_options(settings: OfflineSettings) -> RunOptions:
         raise BenchmarkInputError("ONLY_ALWAYS_LARGE_DEMO_AVAILABLE")
     return RunOptions(
         strategy=settings.benchmark.strategy,
-        provider="fake", allowed_models=("openai/gpt-oss-120b",),
+        provider="fake",
+        allowed_models=("openai/gpt-oss-120b",),
         max_model_calls_per_case=settings.execution.max_model_calls_per_case,
         max_retries=settings.execution.max_retries,
     )

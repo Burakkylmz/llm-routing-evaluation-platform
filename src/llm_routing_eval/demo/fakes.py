@@ -26,10 +26,12 @@ from llm_routing_eval.core import (
     TokenUsage,
 )
 
-DEMO_PROMPTS = frozenset({
-    "Banka kartı ile kredi kartı arasındaki fark nedir?",
-    "Banka hesabı açmak için genel süreç nedir?",
-})
+DEMO_PROMPTS = frozenset(
+    {
+        "Banka kartı ile kredi kartı arasındaki fark nedir?",
+        "Banka hesabı açmak için genel süreç nedir?",
+    }
+)
 DEMO_RESPONSE = "OFFLINE_FAKE_RESPONSE_NOT_FINANCIAL_ADVICE"
 
 
@@ -43,8 +45,9 @@ class DemoAlwaysLargeRouter:
         _ = case
         return RoutingDecision(
             strategy=StrategyId.ALWAYS_LARGE,
-            action=(RoutingAction.INVOKE_MODEL if not context.prior_attempts
-                    else RoutingAction.FINISH),
+            action=(
+                RoutingAction.INVOKE_MODEL if not context.prior_attempts else RoutingAction.FINISH
+            ),
             stage_index=context.current_stage,
             reason_code="OFFLINE_BASELINE_TEST_DOUBLE",
             decision_time_ms=0.0,
@@ -55,10 +58,13 @@ class DemoAlwaysLargeRouter:
 class DemoFakeProvider:
     async def generate(self, request: ModelRequest) -> ModelResponse:
         return ModelResponse(
-            provider=request.provider, model=request.model,
-            attempt_id=request.attempt_id, status=CallStatus.SUCCESS,
+            provider=request.provider,
+            model=request.model,
+            attempt_id=request.attempt_id,
+            status=CallStatus.SUCCESS,
             metric_origin=MetricOrigin.SIMULATED,
-            content=DEMO_RESPONSE, usage=TokenUsage(input_tokens=16, output_tokens=8),
+            content=DEMO_RESPONSE,
+            usage=TokenUsage(input_tokens=16, output_tokens=8),
             latency_ms=5.0,
         )
 
@@ -78,10 +84,14 @@ class DemoFixtureEvaluator:
         _ = reference
         is_success = response is not None and response.status is CallStatus.SUCCESS
         return EvaluationResult(
-            run_id=run_id, case_id=case.case_id, trace_id=trace_id,
+            run_id=run_id,
+            case_id=case.case_id,
+            trace_id=trace_id,
             quality_scores={"demo_fixture_match": float(response.content == DEMO_RESPONSE)}
-            if is_success and response is not None else {},
-            critical_errors=(), evaluation_method="offline_fixture_only",
+            if is_success and response is not None
+            else {},
+            critical_errors=(),
+            evaluation_method="offline_fixture_only",
             evaluator_version="demo-v1",
             status=EvaluationStatus.COMPLETED if is_success else EvaluationStatus.NOT_EVALUATED,
         )

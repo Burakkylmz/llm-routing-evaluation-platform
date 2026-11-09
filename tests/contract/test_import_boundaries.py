@@ -15,5 +15,10 @@ def test_core_imports_only_stdlib_and_pydantic() -> None:
             elif isinstance(node, ast.ImportFrom) and node.level == 0:
                 assert node.module is not None
                 assert node.module.split(".")[0] in {
-                    "__future__", "typing", "datetime", "decimal", "enum", "pydantic",
+                    "__future__",
+                    "typing",
+                    "datetime",
+                    "decimal",
+                    "enum",
+                    "pydantic",
                 }

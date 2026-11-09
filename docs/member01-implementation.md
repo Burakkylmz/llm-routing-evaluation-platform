@@ -16,7 +16,7 @@
 With Python 3.12+ and package-index access:
 
 ```bash
-uv lock
+uv lock --check
 uv sync --locked
 uv run llm-routing-eval validate-config --config config/settings.yaml
 uv run llm-routing-eval run --config config/settings.yaml \
@@ -36,7 +36,7 @@ PYTHONPATH=src python -m llm_routing_eval.cli run
 PYTHONPATH=src python -m pytest -q
 ```
 
-**This authoring environment:** Python 3.13.5; the 40 test cases passed and application/CLI/demo statement coverage was approximately 92%. `uv.lock` is **not updated** because the registry is inaccessible; `uv lock --offline` failed. `ruff` and `mypy` are unavailable, and neither Docker nor Python 3.12 was verified. CI/Docker are owned by Member 04 and still show scaffold behavior; no green status is claimed.
+**Verified quality gates (Python 3.12, locked environment):** `uv lock --check` passes; `ruff check .` and `ruff format --check .` pass; `mypy` (strict, configured with `mypy_path = "src"`) reports no issues in `src/`; 40 tests pass with approximately 94% statement coverage. `.github/workflows/ci.yaml` runs these gates plus an offline CLI smoke test on every push/PR, without network calls to providers. Test modules are not yet under strict mypy. Docker remains a scaffold owned by Member 04 and is unverified.
 
 ## Observed behavior and deliberately missing functionality
 
@@ -58,5 +58,5 @@ PYTHONPATH=src python -m pytest -q
 
 - Members 02–04 review the contracts and examples before implementation is merged.
 - Replace demo fakes with owned adapters and test interoperation.
-- Regenerate and commit `uv.lock` with package-index access; run Ruff, mypy, Python 3.12 and Docker validation.
+- Docker build/run validation (Member 04); lockfile, Ruff, mypy and Python 3.12 checks are done.
 - Add durable audit provenance for model and prompt hashes, source revision, rubric versions and pricing when those adapters exist. Do not claim live model access or banking quality verification beforehand.

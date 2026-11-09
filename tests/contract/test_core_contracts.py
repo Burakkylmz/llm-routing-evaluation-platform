@@ -144,12 +144,18 @@ def test_frozen_records_cannot_be_reassigned_or_given_extra_fields() -> None:
         )
     with pytest.raises(ValidationError):
         BenchmarkCase(
-            case_id="c", input_text="x", domain="bank", scenario_type="fee",
+            case_id="c",
+            input_text="x",
+            domain="bank",
+            scenario_type="fee",
             schema_version="9.0.0",
         )
     with pytest.raises(ValidationError):
         BenchmarkCase(
-            case_id="c", input_text="x", domain="b", scenario_type="f",
+            case_id="c",
+            input_text="x",
+            domain="b",
+            scenario_type="f",
             metadata={"x": object()},
         )
 
@@ -204,15 +210,21 @@ def test_missing_telemetry_stays_unknown_not_zero() -> None:
 def test_failed_provider_call_requires_error_and_no_content() -> None:
     with pytest.raises(ValidationError):
         ModelResponse(
-            provider="fake", model="m", attempt_id="a", status=CallStatus.TIMEOUT,
+            provider="fake",
+            model="m",
+            attempt_id="a",
+            status=CallStatus.TIMEOUT,
             metric_origin=MetricOrigin.SIMULATED,
         )
     with pytest.raises(ValidationError):
         ModelResponse(
-            provider="fake", model="m", attempt_id="a", status=CallStatus.SUCCESS,
-            metric_origin=MetricOrigin.SIMULATED, content="", error=ErrorInfo(
-                category=ErrorCategory.PROVIDER, code="failed"
-            ),
+            provider="fake",
+            model="m",
+            attempt_id="a",
+            status=CallStatus.SUCCESS,
+            metric_origin=MetricOrigin.SIMULATED,
+            content="",
+            error=ErrorInfo(category=ErrorCategory.PROVIDER, code="failed"),
         )
     failed = ModelResponse(
         provider="fake",
@@ -231,42 +243,69 @@ def test_trace_supports_multiple_attempts_and_rejects_duplicate_order() -> None:
     steps = (
         TraceStep(sequence=0, kind=TraceStepKind.ROUTING_DECISION, decision=invoke()),
         TraceStep(
-            sequence=1, kind=TraceStepKind.PROVIDER_ATTEMPT, attempt_id="a1",
-            call_status=CallStatus.TIMEOUT, error=error,
+            sequence=1,
+            kind=TraceStepKind.PROVIDER_ATTEMPT,
+            attempt_id="a1",
+            call_status=CallStatus.TIMEOUT,
+            error=error,
         ),
         TraceStep(
-            sequence=2, kind=TraceStepKind.PROVIDER_ATTEMPT, attempt_id="a2",
-            call_status=CallStatus.SUCCESS, metric_origin=MetricOrigin.SIMULATED,
+            sequence=2,
+            kind=TraceStepKind.PROVIDER_ATTEMPT,
+            attempt_id="a2",
+            call_status=CallStatus.SUCCESS,
+            metric_origin=MetricOrigin.SIMULATED,
         ),
     )
     result = ExecutionTrace(
-        trace_id="t", run_id="r", case_id="c", strategy=StrategyId.ALWAYS_LARGE,
-        steps=steps, status=ExecutionStatus.COMPLETED, started_at=started,
+        trace_id="t",
+        run_id="r",
+        case_id="c",
+        strategy=StrategyId.ALWAYS_LARGE,
+        steps=steps,
+        status=ExecutionStatus.COMPLETED,
+        started_at=started,
     )
     assert len(result.steps) == 3
     with pytest.raises(ValidationError):
         ExecutionTrace(
-            trace_id="t", run_id="r", case_id="c", strategy=StrategyId.ALWAYS_LARGE,
-            steps=(steps[1], steps[1]), status=ExecutionStatus.FAILED,
-            error=error, started_at=started,
+            trace_id="t",
+            run_id="r",
+            case_id="c",
+            strategy=StrategyId.ALWAYS_LARGE,
+            steps=(steps[1], steps[1]),
+            status=ExecutionStatus.FAILED,
+            error=error,
+            started_at=started,
         )
     with pytest.raises(ValidationError):
         ExecutionTrace(
-            trace_id="t", run_id="r", case_id="c", strategy=StrategyId.ALWAYS_LARGE,
-            steps=(), status=ExecutionStatus.COMPLETED, started_at=started,
+            trace_id="t",
+            run_id="r",
+            case_id="c",
+            strategy=StrategyId.ALWAYS_LARGE,
+            steps=(),
+            status=ExecutionStatus.COMPLETED,
+            started_at=started,
         )
 
 
 def test_reference_requires_review_evidence_before_expert_claim() -> None:
     with pytest.raises(ValidationError):
         GoldenReference(
-            case_id="c", dataset_version="v1", expected_facts=("x",),
-            rubric_version="r1", verification_status=VerificationStatus.EXPERT_VERIFIED,
+            case_id="c",
+            dataset_version="v1",
+            expected_facts=("x",),
+            rubric_version="r1",
+            verification_status=VerificationStatus.EXPERT_VERIFIED,
         )
     with pytest.raises(ValidationError):
         GoldenReference(
-            case_id="c", dataset_version="v1", expected_facts=("x",),
-            rubric_version="r1", verification_status=VerificationStatus.UNREVIEWED,
+            case_id="c",
+            dataset_version="v1",
+            expected_facts=("x",),
+            rubric_version="r1",
+            verification_status=VerificationStatus.UNREVIEWED,
             reviewed_at=datetime(2026, 10, 31),
         )
 
@@ -274,70 +313,113 @@ def test_reference_requires_review_evidence_before_expert_claim() -> None:
 def test_failed_evaluation_does_not_claim_scores() -> None:
     with pytest.raises(ValidationError):
         EvaluationResult(
-            run_id="r", case_id="c", trace_id="t", quality_scores={"quality": 0.9},
-            critical_errors=(), evaluation_method="deterministic", evaluator_version="v1",
+            run_id="r",
+            case_id="c",
+            trace_id="t",
+            quality_scores={"quality": 0.9},
+            critical_errors=(),
+            evaluation_method="deterministic",
+            evaluator_version="v1",
             status=EvaluationStatus.FAILED,
         )
     with pytest.raises(ValidationError):
         EvaluationResult(
-            run_id="r", case_id="c", trace_id="t", quality_scores={"quality": 1.1},
-            critical_errors=(), evaluation_method="deterministic", evaluator_version="v1",
+            run_id="r",
+            case_id="c",
+            trace_id="t",
+            quality_scores={"quality": 1.1},
+            critical_errors=(),
+            evaluation_method="deterministic",
+            evaluator_version="v1",
             status=EvaluationStatus.COMPLETED,
         )
 
 
 def test_cost_decimal_serializes_as_string_and_missing_cost_is_none() -> None:
     metrics = StrategyMetrics(
-        case_count=1, successful_cases=1, failed_cases=0, blocked_cases=0,
-        evaluated_cases=1, critical_error_cases=0, cost_amount=Decimal("0.0031"),
-        cost_currency="USD", cost_origin=CostOrigin.SIMULATED, cost_samples=1,
+        case_count=1,
+        successful_cases=1,
+        failed_cases=0,
+        blocked_cases=0,
+        evaluated_cases=1,
+        critical_error_cases=0,
+        cost_amount=Decimal("0.0031"),
+        cost_currency="USD",
+        cost_origin=CostOrigin.SIMULATED,
+        cost_samples=1,
     )
     assert metrics.model_dump(mode="json")["cost_amount"] == "0.0031"
     with pytest.raises(ValidationError):
         StrategyMetrics(
-            case_count=1, successful_cases=2, failed_cases=0, blocked_cases=0,
-            evaluated_cases=0, critical_error_cases=0,
+            case_count=1,
+            successful_cases=2,
+            failed_cases=0,
+            blocked_cases=0,
+            evaluated_cases=0,
+            critical_error_cases=0,
         )
 
 
 def test_privacy_status_fails_closed() -> None:
     with pytest.raises(ValidationError):
         SanitizedText(
-            text="unsafe", status=SanitizationStatus.BLOCKED,
-            policy_version="v1", reason_code="PII_DETECTED",
+            text="unsafe",
+            status=SanitizationStatus.BLOCKED,
+            policy_version="v1",
+            reason_code="PII_DETECTED",
         )
-    assert SanitizedText(
-        text=None, status=SanitizationStatus.BLOCKED,
-        policy_version="v1", reason_code="PII_DETECTED",
-    ).text is None
+    assert (
+        SanitizedText(
+            text=None,
+            status=SanitizationStatus.BLOCKED,
+            policy_version="v1",
+            reason_code="PII_DETECTED",
+        ).text
+        is None
+    )
 
 
 def test_trace_mismatched_strategy_and_attempt_ids_are_rejected() -> None:
     started = datetime(2026, 10, 31, tzinfo=UTC)
     decision = TraceStep(sequence=0, kind=TraceStepKind.ROUTING_DECISION, decision=invoke())
     attempt = TraceStep(
-        sequence=1, kind=TraceStepKind.PROVIDER_ATTEMPT,
-        attempt_id="a1", call_status=CallStatus.SUCCESS,
+        sequence=1,
+        kind=TraceStepKind.PROVIDER_ATTEMPT,
+        attempt_id="a1",
+        call_status=CallStatus.SUCCESS,
     )
     with pytest.raises(ValidationError):
         ExecutionTrace(
-            trace_id="t", run_id="r", case_id="c", strategy=StrategyId.CASCADE,
-            steps=(decision, attempt), status=ExecutionStatus.COMPLETED, started_at=started,
+            trace_id="t",
+            run_id="r",
+            case_id="c",
+            strategy=StrategyId.CASCADE,
+            steps=(decision, attempt),
+            status=ExecutionStatus.COMPLETED,
+            started_at=started,
         )
     with pytest.raises(ValidationError):
         ExecutionTrace(
-            trace_id="t", run_id="r", case_id="c", strategy=StrategyId.ALWAYS_LARGE,
+            trace_id="t",
+            run_id="r",
+            case_id="c",
+            strategy=StrategyId.ALWAYS_LARGE,
             steps=(decision, attempt, attempt.model_copy(update={"sequence": 2})),
-            status=ExecutionStatus.COMPLETED, started_at=started,
+            status=ExecutionStatus.COMPLETED,
+            started_at=started,
         )
 
 
 def test_blocked_trace_requires_error_without_successful_provider() -> None:
     trace = ExecutionTrace(
-        trace_id="t", run_id="r", case_id="c", strategy=StrategyId.ALWAYS_LARGE,
+        trace_id="t",
+        run_id="r",
+        case_id="c",
+        strategy=StrategyId.ALWAYS_LARGE,
         steps=(
             TraceStep(
-                sequence=0, kind=TraceStepKind.PRIVACY_CHECK,
+                sequence=0,
+                kind=TraceStepKind.PRIVACY_CHECK,
                 safe_metadata={"blocked": True},
             ),
         ),

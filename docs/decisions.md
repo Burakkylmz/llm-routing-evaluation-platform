@@ -77,22 +77,32 @@ Use asynchronous I/O-facing methods. Pure, deterministic privacy processing is s
 class RouterPort(Protocol):
     async def decide(self, case: BenchmarkCase, context: RoutingContext) -> RoutingDecision: ...
 
+
 class LLMProviderPort(Protocol):
     async def generate(self, request: ModelRequest) -> ModelResponse: ...
 
+
 class EvaluatorPort(Protocol):
     async def evaluate(
-        self, case: BenchmarkCase, response: ModelResponse | None,
-        reference: GoldenReference | None, *, run_id: str, trace_id: str,
+        self,
+        case: BenchmarkCase,
+        response: ModelResponse | None,
+        reference: GoldenReference | None,
+        *,
+        run_id: str,
+        trace_id: str,
     ) -> EvaluationResult: ...
+
 
 class PrivacyPort(Protocol):
     def sanitize(self, text: str, *, purpose: str) -> SanitizedText: ...
+
 
 class ResultRepositoryPort(Protocol):
     async def save_trace(self, trace: ExecutionTrace) -> None: ...
     async def save_evaluation(self, result: EvaluationResult) -> None: ...
     async def save_report(self, report: BenchmarkReport) -> None: ...
+
 
 class EmbeddingPort(Protocol):
     async def embed(self, texts: tuple[str, ...]) -> tuple[tuple[float, ...], ...]: ...
@@ -286,6 +296,7 @@ llm-routing-evaluation-platform/
 
 | Date | Revision |
 | --- | --- |
+| 2026-11-09 | Member 01 quality gates closed: fixed mypy configuration (`mypy_path = "src"`), applied `ruff format`, and extended CI to run lock check, Ruff lint/format, strict mypy, pytest and an offline CLI smoke test (IMP01-09). No contract change. |
 | 2026-10-31 | Implemented M1.1 Pydantic data models and Port protocols, plus JSON Schemas, synthetic examples and offline contract tests. Recorded explicit EvaluatorPort correlation parameters. Lock regeneration and owner reviews pending. |
 | 2026-10-31 | Consolidated prior M0 decisions with M1 scope, M1.1 frozen logical contracts, M1.2 repository structure, technical governance, privacy, benchmark semantics and milestone gates; resolved planning questions under delegated decision authority. |
 
@@ -308,5 +319,6 @@ These entries record implementation choices within the approved M1 scope; human 
 | IMP01-06 | Simulated provider usage is marked SIMULATED; no real billing cost is inferred. Local latency is described as fake-workflow timing. | Implemented |
 | IMP01-07 | Evaluation results are included only for successful model calls; unsafe evaluator prose is discarded and invalid metric codes fail evaluation. | Implemented; Member 03 evaluator pending |
 | IMP01-08 | Run and data provenance include nonsecret configuration fingerprint and case-identifier hash, but not a full verified dataset content checksum. | Partial; Member 03/04 provenance review pending |
+| IMP01-09 | CI (`.github/workflows/ci.yaml`) enforces M03-03 offline gates: `uv lock --check`, `ruff check`, `ruff format --check`, strict `mypy` on `src/`, `pytest` with coverage and an offline CLI smoke run. No provider credentials or network calls. | Implemented 2026-11-09; Docker build check pending (Member 04) |
 
-**Verification:** 40 passing Python 3.13 tests, approximately 92% Member 01 application/CLI/demo coverage. Registry access was unavailable; `uv.lock` was not regenerated. Ruff/mypy, Docker and Python 3.12 checks were not run. No formal Member 02–04 sign-off has taken place. These are outstanding release and integration gates, not completed deliverables.
+**Verification (2026-11-09):** On Python 3.12 with the locked environment, `uv lock --check`, `ruff check .`, `ruff format --check .` and `mypy` pass; 40 tests pass with approximately 94% statement coverage; the offline CLI demo completes 2/2 synthetic cases. Docker was not verified. No formal Member 02–04 sign-off has taken place; that remains an integration gate, not a completed deliverable.
