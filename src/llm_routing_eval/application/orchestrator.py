@@ -67,8 +67,10 @@ class RunOptions(BaseModel):
 
     @model_validator(mode="after")
     def validate_models(self) -> Self:
-        if not self.provider.strip() or not self.allowed_models or any(
-            not model.strip() for model in self.allowed_models
+        if (
+            not self.provider.strip()
+            or not self.allowed_models
+            or any(not model.strip() for model in self.allowed_models)
         ):
             raise ValueError("Provider and allowed models must be defined")
         if len(set(self.allowed_models)) != len(self.allowed_models):
@@ -77,9 +79,12 @@ class RunOptions(BaseModel):
 
     def fingerprint(self) -> str:
         payload = self.model_dump(mode="json")
-        return "sha256:" + hashlib.sha256(
-            json.dumps(payload, sort_keys=True, separators=(",", ":")).encode()
-        ).hexdigest()
+        return (
+            "sha256:"
+            + hashlib.sha256(
+                json.dumps(payload, sort_keys=True, separators=(",", ":")).encode()
+            ).hexdigest()
+        )
 
 
 class BenchmarkInputError(ValueError):
@@ -152,7 +157,8 @@ class BenchmarkOrchestrator:
             strategy_metrics={options.strategy: metrics},
             generated_at=datetime.now(UTC),
             run_status=(
-                "COMPLETED" if all(t.status is ExecutionStatus.COMPLETED for t in traces)
+                "COMPLETED"
+                if all(t.status is ExecutionStatus.COMPLETED for t in traces)
                 else "PARTIAL"
             ),
             limitations=(
@@ -169,7 +175,8 @@ class BenchmarkOrchestrator:
                 "dataset_identifiers_sha256": hashlib.sha256(
                     json.dumps(
                         [case.case_id for case in cases],
-                        sort_keys=True, ensure_ascii=False,
+                        sort_keys=True,
+                        ensure_ascii=False,
                     ).encode("utf-8")
                 ).hexdigest(),
             },
@@ -209,8 +216,11 @@ class BenchmarkOrchestrator:
             # Privacy adapter exceptions fail closed; never forward caller content.
             permitted = None
         try:
-            if (permitted is None or permitted.status is SanitizationStatus.BLOCKED
-                    or permitted.text is None):
+            if (
+                permitted is None
+                or permitted.status is SanitizationStatus.BLOCKED
+                or permitted.text is None
+            ):
                 status = ExecutionStatus.BLOCKED
                 last_error = _error(ErrorCategory.PRIVACY, "PRIVACY_BLOCKED")
                 add_step(TraceStepKind.PRIVACY_CHECK, error=last_error)
@@ -233,19 +243,25 @@ class BenchmarkOrchestrator:
                         )
                         if decision.strategy != options.strategy or decision.stage_index != stage:
                             raise BenchmarkInputError("Router returned inconsistent strategy/stage")
-                        if (decision.action is RoutingAction.INVOKE_MODEL
-                                and decision.selected_model not in options.allowed_models):
+                        if (
+                            decision.action is RoutingAction.INVOKE_MODEL
+                            and decision.selected_model not in options.allowed_models
+                        ):
                             raise BenchmarkInputError("Router selected an unapproved model")
                     except Exception:
                         last_error = _error(ErrorCategory.ROUTING, "ROUTING_FAILED")
                         add_step(TraceStepKind.ERROR, error=last_error)
                         break
                     # Never persist unvalidated router-generated explanatory prose.
-                    safe_decision = decision.model_copy(update={
-                        "decision_time_ms": (perf_counter() - decision_started) * 1000,
-                        "safe_reason": None,
-                        "reason_code": _safe_code(decision.reason_code, "ROUTER_REASON_REDACTED"),
-                    })
+                    safe_decision = decision.model_copy(
+                        update={
+                            "decision_time_ms": (perf_counter() - decision_started) * 1000,
+                            "safe_reason": None,
+                            "reason_code": _safe_code(
+                                decision.reason_code, "ROUTER_REASON_REDACTED"
+                            ),
+                        }
+                    )
                     decisions.append(safe_decision)
                     add_step(TraceStepKind.ROUTING_DECISION, decision=safe_decision)
                     if decision.action is RoutingAction.FINISH:
@@ -257,30 +273,42 @@ class BenchmarkOrchestrator:
                         )
                     except Exception:
                         sanitized_prompt = None
-                    if (sanitized_prompt is None
-                            or sanitized_prompt.status is not SanitizationStatus.ALLOWED
-                            or sanitized_prompt.text is None):
+                    if (
+                        sanitized_prompt is None
+                        or sanitized_prompt.status is not SanitizationStatus.ALLOWED
+                        or sanitized_prompt.text is None
+                    ):
                         status = ExecutionStatus.BLOCKED
                         last_error = _error(ErrorCategory.PRIVACY, "PROVIDER_PRIVACY_BLOCKED")
                         add_step(TraceStepKind.PRIVACY_CHECK, error=last_error)
                         break
                     assert decision.selected_model is not None
                     response = await self._invoke_with_retries(
-                        options, run_id, trace_id, case.case_id, decision.selected_model,
-                        sanitized_prompt.text, add_step,
+                        options,
+                        run_id,
+                        trace_id,
+                        case.case_id,
+                        decision.selected_model,
+                        sanitized_prompt.text,
+                        add_step,
                     )
-                    feedback.append(RoutingFeedback(
-                        attempt_id=response.attempt_id,
-                        model=response.model,
-                        status=response.status,
-                        error_code=_safe_code(response.error.code, "PROVIDER_ERROR_REDACTED")
-                        if response.error else None,
-                    ))
+                    feedback.append(
+                        RoutingFeedback(
+                            attempt_id=response.attempt_id,
+                            model=response.model,
+                            status=response.status,
+                            error_code=_safe_code(response.error.code, "PROVIDER_ERROR_REDACTED")
+                            if response.error
+                            else None,
+                        )
+                    )
                     if response.status is not CallStatus.SUCCESS:
                         last_error = (
-                            _error(response.error.category,
-                                   _safe_code(response.error.code, "PROVIDER_ERROR_REDACTED"),
-                                   response.error.retryable)
+                            _error(
+                                response.error.category,
+                                _safe_code(response.error.code, "PROVIDER_ERROR_REDACTED"),
+                                response.error.retryable,
+                            )
                             if response.error
                             else _error(ErrorCategory.PROVIDER, "PROVIDER_FAILURE")
                         )
@@ -305,49 +333,78 @@ class BenchmarkOrchestrator:
         if status is ExecutionStatus.BLOCKED or not succeeded:
             # A blocked prompt must not reach a potentially remote judge.
             evaluation = EvaluationResult(
-                run_id=run_id, case_id=case.case_id, trace_id=trace_id,
-                quality_scores={}, critical_errors=(), evaluation_method="not_run",
-                evaluator_version="not_run", status=EvaluationStatus.NOT_EVALUATED,
+                run_id=run_id,
+                case_id=case.case_id,
+                trace_id=trace_id,
+                quality_scores={},
+                critical_errors=(),
+                evaluation_method="not_run",
+                evaluator_version="not_run",
+                status=EvaluationStatus.NOT_EVALUATED,
             )
         else:
             try:
                 evaluation = await asyncio.wait_for(
                     self._evaluator.evaluate(
-                        safe_case, response, reference, run_id=run_id, trace_id=trace_id,
+                        safe_case,
+                        response,
+                        reference,
+                        run_id=run_id,
+                        trace_id=trace_id,
                     ),
                     timeout=options.timeout_seconds,
                 )
-                if (evaluation.run_id != run_id or evaluation.trace_id != trace_id
-                        or evaluation.case_id != case.case_id):
+                if (
+                    evaluation.run_id != run_id
+                    or evaluation.trace_id != trace_id
+                    or evaluation.case_id != case.case_id
+                ):
                     raise BenchmarkInputError("Evaluator returned mismatched identifiers")
-                if (any(not _is_safe_code(key) for key in evaluation.quality_scores)
-                        or any(not _is_safe_code(key) for key in evaluation.critical_errors)
-                        or not _is_safe_code(evaluation.evaluation_method)
-                        or not _is_safe_code(evaluation.evaluator_version)):
+                if (
+                    any(not _is_safe_code(key) for key in evaluation.quality_scores)
+                    or any(not _is_safe_code(key) for key in evaluation.critical_errors)
+                    or not _is_safe_code(evaluation.evaluation_method)
+                    or not _is_safe_code(evaluation.evaluator_version)
+                ):
                     raise BenchmarkInputError("Evaluator emitted unsafe codes")
                 # Until Member 04 supplies a vetted sanitizer, do not persist prose notes.
-                evaluation = evaluation.model_copy(update={
-                    "safe_notes": (), "review_status": None,
-                })
+                evaluation = evaluation.model_copy(
+                    update={
+                        "safe_notes": (),
+                        "review_status": None,
+                    }
+                )
             except Exception:
                 evaluation = EvaluationResult(
-                    run_id=run_id, case_id=case.case_id, trace_id=trace_id,
-                    quality_scores={}, critical_errors=(), evaluation_method="unavailable",
-                    evaluator_version="unknown", status=EvaluationStatus.FAILED,
+                    run_id=run_id,
+                    case_id=case.case_id,
+                    trace_id=trace_id,
+                    quality_scores={},
+                    critical_errors=(),
+                    evaluation_method="unavailable",
+                    evaluator_version="unknown",
+                    status=EvaluationStatus.FAILED,
                 )
-                add_step(TraceStepKind.ERROR,
-                         error=_error(ErrorCategory.EVALUATION, "EVALUATION_FAILED"))
+                add_step(
+                    TraceStepKind.ERROR, error=_error(ErrorCategory.EVALUATION, "EVALUATION_FAILED")
+                )
                 if status is ExecutionStatus.COMPLETED:
                     status = ExecutionStatus.PARTIAL
 
         add_step(TraceStepKind.EVALUATION, safe_metadata={"status": evaluation.status.value})
         trace = ExecutionTrace(
-            trace_id=trace_id, run_id=run_id, case_id=case.case_id,
-            strategy=options.strategy, steps=tuple(steps), status=status,
-            started_at=started, ended_at=datetime.now(UTC),
+            trace_id=trace_id,
+            run_id=run_id,
+            case_id=case.case_id,
+            strategy=options.strategy,
+            steps=tuple(steps),
+            status=status,
+            started_at=started,
+            ended_at=datetime.now(UTC),
             total_latency_ms=(perf_counter() - tick) * 1000,
-            error=(last_error if status in (ExecutionStatus.FAILED, ExecutionStatus.BLOCKED)
-                   else None),
+            error=(
+                last_error if status in (ExecutionStatus.FAILED, ExecutionStatus.BLOCKED) else None
+            ),
         )
         return trace, evaluation
 
@@ -365,9 +422,14 @@ class BenchmarkOrchestrator:
         for index in range(options.max_retries + 1):
             attempt_id = uuid4().hex
             request = ModelRequest(
-                run_id=run_id, trace_id=trace_id, case_id=case_id,
-                attempt_id=attempt_id, provider=options.provider, model=model,
-                prompt=prompt, timeout_seconds=options.timeout_seconds,
+                run_id=run_id,
+                trace_id=trace_id,
+                case_id=case_id,
+                attempt_id=attempt_id,
+                provider=options.provider,
+                model=model,
+                prompt=prompt,
+                timeout_seconds=options.timeout_seconds,
                 temperature=options.temperature,
                 max_output_tokens=options.max_output_tokens,
             )
@@ -376,24 +438,41 @@ class BenchmarkOrchestrator:
                 result = await asyncio.wait_for(
                     self._provider.generate(request), timeout=options.timeout_seconds
                 )
-                if (result.attempt_id != attempt_id or result.model != model
-                        or result.provider != options.provider):
+                if (
+                    result.attempt_id != attempt_id
+                    or result.model != model
+                    or result.provider != options.provider
+                ):
                     raise BenchmarkInputError("Provider returned mismatched identifiers")
             except TimeoutError:
-                result = _failure(options.provider, model, attempt_id,
-                                  ErrorCategory.PROVIDER_TIMEOUT, "TIMEOUT", retryable=True)
+                result = _failure(
+                    options.provider,
+                    model,
+                    attempt_id,
+                    ErrorCategory.PROVIDER_TIMEOUT,
+                    "TIMEOUT",
+                    retryable=True,
+                )
             except Exception:
-                result = _failure(options.provider, model, attempt_id,
-                                  ErrorCategory.PROVIDER, "PROVIDER_FAILURE")
+                result = _failure(
+                    options.provider, model, attempt_id, ErrorCategory.PROVIDER, "PROVIDER_FAILURE"
+                )
             add_step(
-                TraceStepKind.PROVIDER_ATTEMPT, attempt_id=attempt_id,
-                model=model, provider=options.provider,
-                call_status=result.status, metric_origin=result.metric_origin,
-                usage=result.usage, elapsed_ms=(perf_counter() - started) * 1000,
-                error=_error(result.error.category,
-                             _safe_code(result.error.code, "PROVIDER_ERROR_REDACTED"),
-                             result.error.retryable)
-                if result.error is not None else None,
+                TraceStepKind.PROVIDER_ATTEMPT,
+                attempt_id=attempt_id,
+                model=model,
+                provider=options.provider,
+                call_status=result.status,
+                metric_origin=result.metric_origin,
+                usage=result.usage,
+                elapsed_ms=(perf_counter() - started) * 1000,
+                error=_error(
+                    result.error.category,
+                    _safe_code(result.error.code, "PROVIDER_ERROR_REDACTED"),
+                    result.error.retryable,
+                )
+                if result.error is not None
+                else None,
             )
             if result.status is CallStatus.SUCCESS or not (
                 result.error is not None and result.error.retryable and index < options.max_retries
@@ -422,13 +501,20 @@ def _error(category: ErrorCategory, code: str, retryable: bool = False) -> Error
 
 
 def _failure(
-    provider: str, model: str, attempt_id: str, category: ErrorCategory,
-    code: str, *, retryable: bool = False,
+    provider: str,
+    model: str,
+    attempt_id: str,
+    category: ErrorCategory,
+    code: str,
+    *,
+    retryable: bool = False,
 ) -> ModelResponse:
-    status = (CallStatus.TIMEOUT if category is ErrorCategory.PROVIDER_TIMEOUT
-              else CallStatus.FAILED)
+    status = CallStatus.TIMEOUT if category is ErrorCategory.PROVIDER_TIMEOUT else CallStatus.FAILED
     return ModelResponse(
-        provider=provider, model=model, attempt_id=attempt_id, status=status,
+        provider=provider,
+        model=model,
+        attempt_id=attempt_id,
+        status=status,
         metric_origin=MetricOrigin.SIMULATED,
         error=_error(category, code, retryable),
     )
@@ -447,18 +533,23 @@ def _summarize(
     metric_names = {name for item in evaluated for name in item.quality_scores}
     aggregated_scores: dict[str, float | None] = {}
     for name in sorted(metric_names):
-        samples = [score for item in evaluated
-                   if (score := item.quality_scores.get(name)) is not None]
+        samples = [
+            score for item in evaluated if (score := item.quality_scores.get(name)) is not None
+        ]
         aggregated_scores[name] = statistics.mean(samples) if samples else None
     # Do not extrapolate P95 from fewer than 20 data points.
     return StrategyMetrics(
-        case_count=len(traces), successful_cases=completed,
-        failed_cases=failed, blocked_cases=blocked, evaluated_cases=len(evaluated),
+        case_count=len(traces),
+        successful_cases=completed,
+        failed_cases=failed,
+        blocked_cases=blocked,
+        evaluated_cases=len(evaluated),
         critical_error_cases=critical,
         quality_scores=aggregated_scores,
         latency_p50_ms=statistics.median(latencies) if latencies else None,
-        latency_p95_ms=(sorted(latencies)[int((len(latencies) - 1) * 0.95)]
-                        if len(latencies) >= 20 else None),
+        latency_p95_ms=(
+            sorted(latencies)[int((len(latencies) - 1) * 0.95)] if len(latencies) >= 20 else None
+        ),
         latency_samples=len(latencies),
         # Cost remains unknown until priced observations are wired into the report.
     )

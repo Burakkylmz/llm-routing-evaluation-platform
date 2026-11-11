@@ -45,9 +45,7 @@ NonNegativeMoney = Annotated[Decimal, Field(ge=0, allow_inf_nan=False)]
 class ImmutableModel(BaseModel):
     """Shared frozen shape; forbids undeclared fields."""
 
-    model_config = ConfigDict(
-        frozen=True, extra="forbid", strict=True, hide_input_in_errors=True
-    )
+    model_config = ConfigDict(frozen=True, extra="forbid", strict=True, hide_input_in_errors=True)
 
 
 class VersionedRecord(ImmutableModel):
@@ -242,8 +240,7 @@ class ExecutionTrace(VersionedRecord):
         if self.ended_at is not None and self.ended_at < self.started_at:
             raise ValueError("ended_at must not precede started_at")
         if self.status is ExecutionStatus.COMPLETED and not any(
-            step.kind is TraceStepKind.PROVIDER_ATTEMPT
-            and step.call_status is CallStatus.SUCCESS
+            step.kind is TraceStepKind.PROVIDER_ATTEMPT and step.call_status is CallStatus.SUCCESS
             for step in self.steps
         ):
             raise ValueError("COMPLETED trace requires a successful provider attempt")
@@ -253,8 +250,7 @@ class ExecutionTrace(VersionedRecord):
         if any(strategy != self.strategy for strategy in decision_strategies):
             raise ValueError("Trace decisions must match trace strategy")
         attempt_ids = [
-            step.attempt_id for step in self.steps
-            if step.kind is TraceStepKind.PROVIDER_ATTEMPT
+            step.attempt_id for step in self.steps if step.kind is TraceStepKind.PROVIDER_ATTEMPT
         ]
         if len(attempt_ids) != len(set(attempt_ids)):
             raise ValueError("Provider attempts require unique attempt_id")

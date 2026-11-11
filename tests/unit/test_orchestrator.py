@@ -44,14 +44,18 @@ def fixture_case() -> BenchmarkCase:
     return BenchmarkCase(
         case_id="demo-001",
         input_text=sorted(DEMO_PROMPTS)[0],
-        domain="turkish_banking", scenario_type="synthetic_test",
+        domain="turkish_banking",
+        scenario_type="synthetic_test",
         metadata={"synthetic": True, "golden_label": "MUST_NOT_REACH_ROUTER"},
     )
 
 
 def setup(
-    *, router: object | None = None, provider: object | None = None,
-    evaluator: object | None = None, privacy: object | None = None,
+    *,
+    router: object | None = None,
+    provider: object | None = None,
+    evaluator: object | None = None,
+    privacy: object | None = None,
     repo: InMemoryDemoRepository | None = None,
     sleep: Callable[..., object] | None = None,
 ) -> tuple[BenchmarkOrchestrator, InMemoryDemoRepository]:
@@ -81,8 +85,10 @@ def test_offline_success_id_relationships_and_simulated_cost() -> None:
     assert trace.trace_id == evaluation.trace_id
     assert trace.status is ExecutionStatus.COMPLETED
     assert [item.kind for item in trace.steps] == [
-        TraceStepKind.PRIVACY_CHECK, TraceStepKind.ROUTING_DECISION,
-        TraceStepKind.PROVIDER_ATTEMPT, TraceStepKind.ROUTING_DECISION,
+        TraceStepKind.PRIVACY_CHECK,
+        TraceStepKind.ROUTING_DECISION,
+        TraceStepKind.PROVIDER_ATTEMPT,
+        TraceStepKind.ROUTING_DECISION,
         TraceStepKind.EVALUATION,
     ]
     metrics = result.report.strategy_metrics[StrategyId.ALWAYS_LARGE]
@@ -110,8 +116,12 @@ def test_repeated_runs_are_equivalent_ignoring_volatile_fields() -> None:
 def test_privacy_failure_blocks_all_downstream_calls() -> None:
     class Deny:
         def sanitize(self, text: str, *, purpose: str) -> SanitizedText:
-            return SanitizedText(text=None, policy_version="test", reason_code="DENIED",
-                                 status=SanitizationStatus.BLOCKED)
+            return SanitizedText(
+                text=None,
+                policy_version="test",
+                reason_code="DENIED",
+                status=SanitizationStatus.BLOCKED,
+            )
 
     class MustNeverCall:
         async def decide(self, *args: object) -> None:
@@ -156,11 +166,14 @@ def test_provider_timeout_retries_with_distinct_attempts() -> None:
             calls.append(request.attempt_id)
             if len(calls) == 1:
                 return ModelResponse(
-                    provider=request.provider, model=request.model,
-                    attempt_id=request.attempt_id, status=CallStatus.TIMEOUT,
+                    provider=request.provider,
+                    model=request.model,
+                    attempt_id=request.attempt_id,
+                    status=CallStatus.TIMEOUT,
                     metric_origin=MetricOrigin.SIMULATED,
-                    error=ErrorInfo(category=ErrorCategory.PROVIDER_TIMEOUT,
-                                    code="TIMEOUT", retryable=True),
+                    error=ErrorInfo(
+                        category=ErrorCategory.PROVIDER_TIMEOUT, code="TIMEOUT", retryable=True
+                    ),
                 )
             return await DemoFakeProvider().generate(request)
 
@@ -169,8 +182,7 @@ def test_provider_timeout_retries_with_distinct_attempts() -> None:
 
     engine, _ = setup(provider=Intermittent(), sleep=no_sleep)
     result = asyncio.run(engine.run([fixture_case()], opts(max_retries=1)))
-    attempts = [s for s in result.traces[0].steps
-                if s.kind is TraceStepKind.PROVIDER_ATTEMPT]
+    attempts = [s for s in result.traces[0].steps if s.kind is TraceStepKind.PROVIDER_ATTEMPT]
     assert [a.call_status for a in attempts] == [CallStatus.TIMEOUT, CallStatus.SUCCESS]
     assert len(calls) == len(set(calls)) == 2
     assert len(delays) == 1
@@ -182,19 +194,29 @@ def test_cascade_multiple_decisions_and_model_calls() -> None:
             assert case.metadata == {}
             model = "small" if context.current_stage == 0 else "large"
             return RoutingDecision(
-                strategy=StrategyId.CASCADE, action=RoutingAction.INVOKE_MODEL,
-                selected_model=model, stage_index=context.current_stage,
-                decision_time_ms=0.1, reason_code="STAGE_ROUTE",
+                strategy=StrategyId.CASCADE,
+                action=RoutingAction.INVOKE_MODEL,
+                selected_model=model,
+                stage_index=context.current_stage,
+                decision_time_ms=0.1,
+                reason_code="STAGE_ROUTE",
             )
 
     engine, _ = setup(router=TwoStageRouter())
-    result = asyncio.run(engine.run([fixture_case()], opts(
-        strategy=StrategyId.CASCADE, max_model_calls_per_case=2,
-    )))
+    result = asyncio.run(
+        engine.run(
+            [fixture_case()],
+            opts(
+                strategy=StrategyId.CASCADE,
+                max_model_calls_per_case=2,
+            ),
+        )
+    )
     trace = result.traces[0]
     assert trace.status is ExecutionStatus.COMPLETED
     assert [step.model for step in trace.steps if step.kind is TraceStepKind.PROVIDER_ATTEMPT] == [
-        "small", "large",
+        "small",
+        "large",
     ]
     assert len([step for step in trace.steps if step.decision is not None]) == 2
 
@@ -204,16 +226,17 @@ def test_unapproved_model_is_not_called() -> None:
         async def decide(self, case: BenchmarkCase, context: RoutingContext) -> RoutingDecision:
             return RoutingDecision(
                 strategy=StrategyId.ALWAYS_LARGE,
-                action=RoutingAction.INVOKE_MODEL, selected_model="unapproved",
-                stage_index=context.current_stage, decision_time_ms=0,
+                action=RoutingAction.INVOKE_MODEL,
+                selected_model="unapproved",
+                stage_index=context.current_stage,
+                decision_time_ms=0,
                 reason_code="INVALID_MODEL",
             )
 
     engine, _ = setup(router=RogueRouter())
     result = asyncio.run(engine.run([fixture_case()], opts()))
     assert result.traces[0].status is ExecutionStatus.FAILED
-    assert all(step.kind is not TraceStepKind.PROVIDER_ATTEMPT
-               for step in result.traces[0].steps)
+    assert all(step.kind is not TraceStepKind.PROVIDER_ATTEMPT for step in result.traces[0].steps)
 
 
 def test_evaluator_exception_is_partial_and_no_fabricated_score() -> None:
@@ -257,10 +280,12 @@ def test_injected_router_reason_is_not_written_to_trace() -> None:
                 strategy=StrategyId.ALWAYS_LARGE,
                 action=(
                     RoutingAction.INVOKE_MODEL
-                    if not context.prior_attempts else RoutingAction.FINISH
+                    if not context.prior_attempts
+                    else RoutingAction.FINISH
                 ),
                 selected_model="large" if not context.prior_attempts else None,
-                stage_index=context.current_stage, decision_time_ms=0,
+                stage_index=context.current_stage,
+                decision_time_ms=0,
                 reason_code="secret=SHOULD_BE_REDACTED",
                 safe_reason="BANK_ACCOUNT_123456",
             )
@@ -276,15 +301,25 @@ def test_injected_router_reason_is_not_written_to_trace() -> None:
 def test_evaluator_untrusted_notes_are_not_persisted() -> None:
     class UnsafeNotes:
         async def evaluate(
-            self, case: BenchmarkCase, response: ModelResponse | None,
-            reference: object, *, run_id: str, trace_id: str,
+            self,
+            case: BenchmarkCase,
+            response: ModelResponse | None,
+            reference: object,
+            *,
+            run_id: str,
+            trace_id: str,
         ) -> EvaluationResult:
             return EvaluationResult(
-                case_id=case.case_id, run_id=run_id, trace_id=trace_id,
-                quality_scores={"fixture_match": 1.0}, critical_errors=(),
-                evaluation_method="offline_fixture_only", evaluator_version="test-v1",
+                case_id=case.case_id,
+                run_id=run_id,
+                trace_id=trace_id,
+                quality_scores={"fixture_match": 1.0},
+                critical_errors=(),
+                evaluation_method="offline_fixture_only",
+                evaluator_version="test-v1",
                 status=EvaluationStatus.COMPLETED,
-                safe_notes=("account=SECRET_12345",), review_status="SECRET_REVIEWER",
+                safe_notes=("account=SECRET_12345",),
+                review_status="SECRET_REVIEWER",
             )
 
     engine, _ = setup(evaluator=UnsafeNotes())
@@ -301,9 +336,8 @@ def test_provider_privacy_rejection_prevents_model_call() -> None:
             return SanitizedText(
                 text=text if permitted else None,
                 policy_version="deny-provider-v1",
-                reason_code="TEST", status=(
-                    SanitizationStatus.ALLOWED if permitted else SanitizationStatus.BLOCKED
-                ),
+                reason_code="TEST",
+                status=(SanitizationStatus.ALLOWED if permitted else SanitizationStatus.BLOCKED),
             )
 
     class MustNeverCall:
@@ -321,14 +355,23 @@ def test_evaluator_receives_only_golden_reference_not_router() -> None:
 
     class ReferenceCheckingEvaluator(DemoFixtureEvaluator):
         async def evaluate(
-            self, case: BenchmarkCase, response: ModelResponse | None,
-            reference: GoldenReference | None, *, run_id: str, trace_id: str,
+            self,
+            case: BenchmarkCase,
+            response: ModelResponse | None,
+            reference: GoldenReference | None,
+            *,
+            run_id: str,
+            trace_id: str,
         ) -> EvaluationResult:
             assert reference is not None
             assert reference.expected_facts == ("PRIVATE_GOLDEN_ONLY",)
             assert case.metadata == {}
             return await super().evaluate(
-                case, response, reference, run_id=run_id, trace_id=trace_id,
+                case,
+                response,
+                reference,
+                run_id=run_id,
+                trace_id=trace_id,
             )
 
     class MetadataCheckingRouter(DemoAlwaysLargeRouter):
@@ -337,12 +380,15 @@ def test_evaluator_receives_only_golden_reference_not_router() -> None:
             return await super().decide(case, context)
 
     ref = GoldenReference(
-        case_id="demo-001", dataset_version="synthetic-dev-v1",
-        expected_facts=("PRIVATE_GOLDEN_ONLY",), rubric_version="test",
+        case_id="demo-001",
+        dataset_version="synthetic-dev-v1",
+        expected_facts=("PRIVATE_GOLDEN_ONLY",),
+        rubric_version="test",
         verification_status=VerificationStatus.UNREVIEWED,
     )
-    engine, _ = setup(router=MetadataCheckingRouter("large"),
-                      evaluator=ReferenceCheckingEvaluator())
+    engine, _ = setup(
+        router=MetadataCheckingRouter("large"), evaluator=ReferenceCheckingEvaluator()
+    )
     result = asyncio.run(engine.run([fixture_case()], opts(), references={"demo-001": ref}))
     assert result.traces[0].status is ExecutionStatus.COMPLETED
     assert "PRIVATE_GOLDEN_ONLY" not in result.traces[0].model_dump_json()
@@ -352,10 +398,16 @@ def test_provider_error_message_is_redacted_from_trace_root() -> None:
     class UnsafeErrorProvider:
         async def generate(self, request: ModelRequest) -> ModelResponse:
             return ModelResponse(
-                provider=request.provider, model=request.model, attempt_id=request.attempt_id,
-                status=CallStatus.FAILED, metric_origin=MetricOrigin.SIMULATED,
-                error=ErrorInfo(category=ErrorCategory.PROVIDER,
-                                code="account=1234567", safe_message="my very secret passcode"),
+                provider=request.provider,
+                model=request.model,
+                attempt_id=request.attempt_id,
+                status=CallStatus.FAILED,
+                metric_origin=MetricOrigin.SIMULATED,
+                error=ErrorInfo(
+                    category=ErrorCategory.PROVIDER,
+                    code="account=1234567",
+                    safe_message="my very secret passcode",
+                ),
             )
 
     engine, _ = setup(provider=UnsafeErrorProvider())

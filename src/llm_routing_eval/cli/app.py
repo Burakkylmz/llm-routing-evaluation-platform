@@ -62,15 +62,22 @@ def _write_safe_jsonl(path: Path, repository: InMemoryDemoRepository) -> None:
         )
         # Only schema-safe records: no ModelResponse.content or BenchmarkCase.input_text.
         with tempfile.NamedTemporaryFile(
-            mode="w", encoding="utf-8", dir=path.parent, prefix=".offline-demo-",
-            suffix=".jsonl", delete=False,
+            mode="w",
+            encoding="utf-8",
+            dir=path.parent,
+            prefix=".offline-demo-",
+            suffix=".jsonl",
+            delete=False,
         ) as handle:
             temp_path = Path(handle.name)
             for kind, record in rows:
-                handle.write(json.dumps(
-                    {"record_type": kind, "payload": record.model_dump(mode="json")},
-                    ensure_ascii=False,
-                ) + "\n")
+                handle.write(
+                    json.dumps(
+                        {"record_type": kind, "payload": record.model_dump(mode="json")},
+                        ensure_ascii=False,
+                    )
+                    + "\n"
+                )
         os.replace(temp_path, path)
     except OSError as exc:
         raise BenchmarkPersistenceError("OUTPUT_WRITE_FAILED") from exc
@@ -110,21 +117,26 @@ def run(
         repo = InMemoryDemoRepository()
         orchestrator = BenchmarkOrchestrator(
             router=DemoAlwaysLargeRouter(model=options.allowed_models[0]),
-            provider=DemoFakeProvider(), evaluator=DemoFixtureEvaluator(),
-            privacy=AllowlistedDemoPrivacy(), repository=repo,
+            provider=DemoFakeProvider(),
+            evaluator=DemoFixtureEvaluator(),
+            privacy=AllowlistedDemoPrivacy(),
+            repository=repo,
         )
         result = asyncio.run(orchestrator.run(cases, options))
         _write_safe_jsonl(output, repo)
         metric = result.report.strategy_metrics[options.strategy]
         typer.echo(f"RUN_ID: {result.report.run_id}")
-        typer.echo(f"CASES: {metric.case_count}, SUCCESS: {metric.successful_cases}, "
-                   f"FAILED: {metric.failed_cases}, BLOCKED: {metric.blocked_cases}")
+        typer.echo(
+            f"CASES: {metric.case_count}, SUCCESS: {metric.successful_cases}, "
+            f"FAILED: {metric.failed_cases}, BLOCKED: {metric.blocked_cases}"
+        )
         typer.echo("MODE: OFFLINE_SIMULATION; financial quality and API cost NOT measured")
         typer.echo(f"REPORT: {output}")
     except (BenchmarkInputError, BenchmarkPersistenceError, ValidationError) as exc:
         # Avoid exposing Pydantic validation inputs, file names or secrets in errors.
         reason = (
-            str(exc) if isinstance(exc, (BenchmarkInputError, BenchmarkPersistenceError))
+            str(exc)
+            if isinstance(exc, (BenchmarkInputError, BenchmarkPersistenceError))
             else "INVALID_OPTIONS"
         )
         typer.echo(f"RUN_FAILED: {reason}", err=True)

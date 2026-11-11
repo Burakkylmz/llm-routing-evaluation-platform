@@ -18,7 +18,10 @@ Import from `llm_routing_eval.core`. Versioned records reject unexpected fields,
 
 ```python
 from llm_routing_eval.core import (
-    BenchmarkCase, RoutingAction, RoutingDecision, StrategyId,
+    BenchmarkCase,
+    RoutingAction,
+    RoutingDecision,
+    StrategyId,
 )
 
 case = BenchmarkCase(
@@ -63,14 +66,12 @@ Contract changes require affected owners' review and an amendment to `docs/decis
 # From repository root, with Pydantic v2 and pytest available:
 PYTHONPATH=src python -m pytest -q tests/contract
 
-# On a machine with Python 3.12+ and PyPI access, first regenerate the lock:
-uv lock
+# With Python 3.12+ and the committed lockfile:
+uv lock --check
 uv sync --locked
 uv run pytest -q tests/contract
 ```
 
-The authoring environment had no package-index DNS access, so the checked-in
-`uv.lock` is still the original scaffold lock and is **not synchronized** with
-new dependencies in `pyproject.toml`. Ruff and mypy have not been executed here.
-CI and Docker must not be described as green until the lock is regenerated and
-the full quality gates pass.
+The committed `uv.lock` is synchronized with `pyproject.toml`; contract tests,
+Ruff and strict mypy pass and run in the offline CI workflow. Docker remains
+unverified (Member 04).

@@ -32,7 +32,15 @@ The generated JSONL contains a redacted execution trace, fixture-only evaluation
 
 ### Current verification constraints
 
-The initial implementation was checked on Python 3.13.5 with 40 passing tests and approximately 92% statement coverage of the Member 01 application/CLI/demo code. Before the first GitHub publication, Python 3.12.13 passed all 40 tests, Ruff and mypy; the regenerated lockfile also passed its integrity check. No live API calls were made. Docker remains unverified; the scaffold CI does not yet enforce the full quality gate.
+Member 01 quality gates (Python 3.12, `uv sync --locked`): `uv lock --check`, `ruff check .`, `ruff format --check .`, `mypy` (strict, `src/`) and 40 `pytest` tests pass with approximately 94% statement coverage. The GitHub Actions workflow runs the same offline gates plus a CLI smoke test. No live API calls were made. Docker remains a scaffold and is unverified (Member 04).
+
+```bash
+uv lock --check
+uv run ruff check .
+uv run ruff format --check .
+uv run mypy
+uv run pytest -q --cov=llm_routing_eval
+```
 
 ## Documentation
 

@@ -2,7 +2,7 @@
 
 **Project:** LLM Routing Evaluation Platform\
 **Role:** Architecture & Core Owner\
-**Status:** Member 01 implementation ready for team review — offline CLI/orchestrator/tests implemented; real adapters, lockfile and quality gates pending
+**Status:** Member 01 implementation complete and ready for team review — offline CLI/orchestrator/tests implemented; lockfile and Ruff/mypy/pytest quality gates pass and are enforced in CI. Formal Member 02–04 contract sign-off and real adapter integration remain pending.
 
 ## Mission
 
@@ -43,7 +43,7 @@ Build a testable, domain-independent foundation for running **fair and reproduci
 - [x] A CLI-driven **offline benchmark smoke test** runs end to end using fakes, without requiring API keys or network calls.
 - [x] The same input and fixed fake outputs produce equivalent routing and evaluation records across repeated runs (apart from explicitly identified volatile metadata).
 - [x] Every run emits a unique run ID, strategy/model identifiers, configuration provenance (without secrets), timestamps, and machine-readable success/failure outcomes through the reporting contract.
-- [ ] Unit tests cover invalid configuration and adapter failures (implemented); Ruff/mypy checks still pending.
+- [x] Unit tests cover invalid configuration and adapter failures; Ruff (lint + format) and strict mypy pass and are enforced by the offline CI workflow.
 - [x] The architecture and CLI usage are documented with a minimal reproducible example.
 
 ## Dependencies & Out of Scope

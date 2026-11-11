@@ -1,10 +1,15 @@
-name: Scaffold Integrity
+name: Offline Quality Gates
 on:
   push:
   pull_request:
+permissions:
+  contents: read
 jobs:
-  structure:
+  quality:
     runs-on: ubuntu-latest
+    env:
+      # CI must never call external providers (decisions M03-03, M03-08, SEC-07).
+      BENCHMARK_MODE: offline
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v6
@@ -14,7 +19,18 @@ jobs:
         run: uv lock --check
       - name: Sync locked environment
         run: uv sync --locked
-      - name: Compile scaffold
-        run: uv run --locked python -m compileall -q src
-# Add Ruff, mypy, pytest and contract gates with implementation (M1).
-# CI must never call external providers.
+      - name: Ruff lint
+        run: uv run --locked ruff check .
+      - name: Ruff format
+        run: uv run --locked ruff format --check .
+      - name: Mypy (strict)
+        run: uv run --locked mypy
+      - name: Pytest (unit, contract, integration)
+        run: uv run --locked pytest -q --cov=llm_routing_eval --cov-report=term
+      - name: Offline CLI smoke test
+        run: |
+          uv run --locked llm-routing-eval validate-config --config config/settings.yaml
+          uv run --locked llm-routing-eval run --config config/settings.yaml \
+            --dataset examples/offline_demo_cases.json \
+            --output artifacts/ci_offline_demo.jsonl
+# Docker build/run checks are owned by Member 04 and remain to be added.
