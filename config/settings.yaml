@@ -8,4 +8,38 @@ benchmark:
   strategy: always_large
   domain: turkish_banking
   locale: tr-TR
-# Configuration is a design example until the M1 loader exists.
+
+# Offline fixture-only model IDs. This file NEVER enables real LLM providers.
+routing:
+  models:
+    small: offline-small
+    large: offline-large
+  rule_based:
+    default_tier: large
+    rules:
+      - code: GENERAL_ACCOUNT
+        scenario_types: [account_general]
+        tier: small
+      - code: GENERAL_CARD
+        scenario_types: [card_general]
+        tier: large
+  knn:
+    k: 1
+    minimum_similarity: 0.25
+    embedding_dimensions: 64
+    # Distinct training-only synthetic examples. Not the held-out demo cases
+    # and NEVER the golden answers or evaluation labels.
+    examples:
+      - example_id: dev-account-explanation
+        input_text: "Genel hesap işlemlerine ilişkin eğitim amaçlı anlatım"
+        tier: small
+        split: development
+        synthetic: true
+      - example_id: dev-card-explanation
+        input_text: "Kart özellikleri konusunda örnek eğitim senaryosu"
+        tier: large
+        split: development
+        synthetic: true
+  cascade:
+    escalate_scenarios: [account_general]
+    escalate_on_failure: true
