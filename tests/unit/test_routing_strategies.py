@@ -1,8 +1,6 @@
 """Member 02 routing tests: deterministic, synthetic and network-free."""
 
 import asyncio
-from typing import cast
-
 import pytest
 
 from llm_routing_eval.core import (
@@ -118,7 +116,7 @@ def test_knn_uses_only_development_index_and_identical_query() -> None:
             example_id="bad",
             input_text="held out",
             tier="large",
-            split=cast("development", "golden"),
+            split="golden",  # type: ignore[arg-type]
         )
 
 
