@@ -301,7 +301,7 @@ def test_https_transport_pins_endpoint_and_disables_redirects(
     class Response:
         status = 200
 
-        def __enter__(self) -> "Response":
+        def __enter__(self) -> Response:
             return self
 
         def __exit__(self, *_args: object) -> None:
@@ -324,7 +324,9 @@ def test_https_transport_pins_endpoint_and_disables_redirects(
         return Opener()
 
     monkeypatch.setattr(module, "build_opener", opener)
-    response = GroqHttpTransport()._post({"model": MODEL}, api_key="local-test-key", timeout_seconds=4)
+    response = GroqHttpTransport()._post(
+        {"model": MODEL}, api_key="local-test-key", timeout_seconds=4
+    )
     assert response.status_code == 200
     assert response.body == b'{"choices":[]}'
 
@@ -362,7 +364,7 @@ def test_http_transport_rejects_oversized_body(monkeypatch: pytest.MonkeyPatch) 
     class Response:
         status = 200
 
-        def __enter__(self) -> "Response":
+        def __enter__(self) -> Response:
             return self
 
         def __exit__(self, *_args: object) -> None:
