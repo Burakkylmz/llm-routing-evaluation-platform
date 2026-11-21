@@ -104,9 +104,7 @@ def test_changing_model_pair_updates_fingerprint(strategy: StrategyId) -> None:
     ],
 )
 def test_irrelevant_rule_policy_changes_do_not_change_fingerprint(strategy: StrategyId) -> None:
-    modified = _mutated_settings(
-        lambda x: x["routing"]["rule_based"].update(default_tier="small")
-    )
+    modified = _mutated_settings(lambda x: x["routing"]["rule_based"].update(default_tier="small"))
     assert _digest(_settings(), strategy) == _digest(modified, strategy)
 
 
