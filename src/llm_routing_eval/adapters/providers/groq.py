@@ -181,9 +181,7 @@ class GroqProvider:
             return failure(ErrorCategory.VALIDATION, "GROQ_UNSUPPORTED_GENERATION_PARAMETERS")
         top_p = request.generation_parameters.get("top_p")
         if top_p is not None and (
-            type(top_p) not in (int, float)
-            or not math.isfinite(top_p)
-            or not 0 < top_p <= 1
+            type(top_p) not in (int, float) or not math.isfinite(top_p) or not 0 < top_p <= 1
         ):
             return failure(ErrorCategory.VALIDATION, "GROQ_INVALID_TOP_P")
         key = os.environ.get("GROQ_API_KEY", "").strip()
