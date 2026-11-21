@@ -18,10 +18,10 @@ from llm_routing_eval.application import (
     BenchmarkPersistenceError,
 )
 from llm_routing_eval.cli.configuration import demo_options, read_settings
-from llm_routing_eval.core import BenchmarkCase
+from llm_routing_eval.cli.router_factory import build_offline_router, enforce_development_isolation
+from llm_routing_eval.core import BenchmarkCase, StrategyId
 from llm_routing_eval.demo.fakes import (
     AllowlistedDemoPrivacy,
-    DemoAlwaysLargeRouter,
     DemoFakeProvider,
     DemoFixtureEvaluator,
     InMemoryDemoRepository,
@@ -86,13 +86,25 @@ def _write_safe_jsonl(path: Path, repository: InMemoryDemoRepository) -> None:
             temp_path.unlink(missing_ok=True)
 
 
+def _strategy_override(value: str | None) -> StrategyId | None:
+    if value is None:
+        return None
+    try:
+        return StrategyId(value)
+    except ValueError as exc:
+        raise BenchmarkInputError("UNKNOWN_STRATEGY") from exc
+
+
 @app.command("validate-config")
 def validate_config(
     config: Annotated[Path, typer.Option(help="YAML settings file")] = DEFAULT_CONFIG,
+    strategy: Annotated[str | None, typer.Option(help="Optional router strategy override")] = None,
 ) -> None:
-    """Validate offline settings without invoking providers."""
+    """Validate config and instantiate the selected offline router, without network."""
     try:
-        demo_options(read_settings(config))
+        settings = read_settings(config)
+        options = demo_options(settings, strategy_override=_strategy_override(strategy))
+        asyncio.run(build_offline_router(settings, options.strategy))
         typer.echo("CONFIG_VALID: offline demo (no network, no API keys)")
     except BenchmarkInputError as exc:
         typer.echo(f"CONFIG_ERROR: {exc}", err=True)
@@ -105,18 +117,23 @@ def run(
     dataset: Annotated[Path, typer.Option(help="Synthetic demo fixtures JSON")] = DEFAULT_DATASET,
     output: Annotated[Path, typer.Option(help="Safe JSONL result destination")] = DEFAULT_OUTPUT,
     live: Annotated[bool, typer.Option(help="Reserved; live mode is NOT implemented")] = False,
+    strategy: Annotated[str | None, typer.Option(help="Optional router strategy override")] = None,
 ) -> None:
-    """Run the offline integration test using deterministic fake components."""
+    """Run any of the four offline routers with a fake provider and allowlisted cases."""
     if live:
         typer.echo("LIVE_MODE_NOT_IMPLEMENTED", err=True)
         raise typer.Exit(code=2)
     try:
-        options = demo_options(read_settings(config))
+        settings = read_settings(config)
+        options = demo_options(settings, strategy_override=_strategy_override(strategy))
         dataset_version, cases = _load_demo_cases(dataset)
+        if options.strategy is StrategyId.KNN:
+            enforce_development_isolation(settings, cases)
+        router = asyncio.run(build_offline_router(settings, options.strategy))
         options = options.model_copy(update={"dataset_version": dataset_version})
         repo = InMemoryDemoRepository()
         orchestrator = BenchmarkOrchestrator(
-            router=DemoAlwaysLargeRouter(model=options.allowed_models[0]),
+            router=router,
             provider=DemoFakeProvider(),
             evaluator=DemoFixtureEvaluator(),
             privacy=AllowlistedDemoPrivacy(),

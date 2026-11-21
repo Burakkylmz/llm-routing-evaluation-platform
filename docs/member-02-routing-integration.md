@@ -2,7 +2,7 @@
 
 **Project:** LLM Routing Evaluation Platform\
 **Role:** Routing Strategies & Provider Integration Owner\
-**Status:** Four offline routers and deterministic tests implemented; main integration is under review. Validated YAML/CLI composition, Groq provider, joint contract review, and benchmark validation are pending. The separate NVIDIA Build M5 adapter is merged, but live access is unverified. See [implementation notes](member02-implementation.md).
+**Status:** All four routers are on main; validated YAML routing and the Groq transport adapter are implemented in a follow-up PR (offline tests only). The NVIDIA Build M5 adapter is on main. Cross-team acceptance, live activation, provider access, real evaluation and benchmark validation remain pending. See [implementation notes](member02-implementation.md) and [Groq/YAML guide](member02-groq-offline-routing.md).
 
 ## Mission
 

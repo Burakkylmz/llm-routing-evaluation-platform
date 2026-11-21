@@ -1,6 +1,6 @@
 # LLM Routing Evaluation Platform - V1.1
 
-**Status:** Member 01 Core/CLI offline demo and Member 02's four standalone offline router implementations are available. The NVIDIA Build M5 adapter is present but disabled for live use. Router selection through the CLI, Groq provider, production privacy, dataset evaluation and durable reporting remain pending.
+**Status:** Member 01 Core/CLI demo and Member 02's four YAML-selectable offline routers are implemented. Groq and NVIDIA Build provider adapters are present with fully mocked HTTP tests, but neither is wired for live use. Production privacy, expert-verified evaluation, provider access and durable reporting remain pending.
 
 An open-source, domain-independent framework to evaluate whether LLM routing strategies improve cost, answer quality and latency on controlled workloads. The first domain pack targets **Turkish Retail Banking & Customer Support**.
 
@@ -9,12 +9,12 @@ An open-source, domain-independent framework to evaluate whether LLM routing str
 - Python 3.12+, uv, TOML, YAML, Docker
 - Modular monolith, SOLID/OOP and pragmatic Ports & Adapters
 - Pydantic v2 contracts, Typer CLI, async dependency injection through Ports
-- Strategies: Always-Large, Rule-Based, kNN, Cascade (offline RouterPort implementations; CLI composition pending)
-- Primary live provider target: Groq (adapter not yet implemented); NVIDIA Build M5 adapter exists but is not live-enabled
+- Strategies: Always-Large, Rule-Based, kNN, Cascade (offline RouterPort implementations; selectable through YAML or --strategy)
+- Provider adapters: Groq and NVIDIA Build implement LLMProviderPort behind explicit live/privacy gates; no live CLI path is available
 
-## Member 01 offline smoke test
+## Offline synthetic routing demo
 
-The CLI is deliberately limited to two allowlisted synthetic examples and deterministic test doubles. **It does not judge financial correctness and never contacts a real API.**
+The CLI deliberately uses two allowlisted synthetic inputs and deterministic test doubles, while selecting any of the four real routing strategies from YAML or `--strategy`. **It does not judge financial correctness and never contacts a real API.**
 
 ```bash
 # In the repository root, with PyPI access and Python 3.12+:
@@ -22,7 +22,10 @@ uv sync --locked
 uv run llm-routing-eval validate-config --config config/settings.yaml
 uv run llm-routing-eval run --config config/settings.yaml \
   --dataset examples/offline_demo_cases.json \
-  --output artifacts/offline_demo.jsonl
+  --strategy always_large --output artifacts/offline_demo.jsonl
+# Choose rule_based, knn, or cascade without changing the orchestrator:
+uv run llm-routing-eval run --config config/settings.yaml \
+  --strategy cascade --output artifacts/cascade_demo.jsonl
 uv run pytest -q
 ```
 
@@ -32,7 +35,7 @@ The generated JSONL contains a redacted execution trace, fixture-only evaluation
 
 ### Current verification constraints
 
-GitHub Actions runs `uv lock --check`, Ruff lint/format, strict mypy, pytest and an offline CLI smoke test. Routing tests use local fake providers; NVIDIA adapter tests use a mock transport. No live model availability or financial correctness is established. Docker remains a scaffold and is unverified (Member 04).
+GitHub Actions runs `uv lock --check`, Ruff lint/format, strict mypy, pytest and an offline CLI smoke test. Routing tests use a local fake provider; Groq and NVIDIA adapters are tested with mocked transports. No live model availability or financial correctness is established. Docker remains a scaffold and is unverified (Member 04).
 
 ```bash
 uv lock --check
@@ -48,6 +51,7 @@ uv run pytest -q --cov=llm_routing_eval
 - [Decision log](docs/decisions.md)
 - [Member 01 implementation and handoff](docs/member01-implementation.md)
 - [Member 02 offline routing implementation](docs/member02-implementation.md)
+- [Groq adapter and YAML/CLI routing guide](docs/member02-groq-offline-routing.md)
 - [NVIDIA Build M5 compatibility notes](docs/member02-nvidia-build-m5.md)
 - [Core contract specification](docs/contracts.md)
 - [Development roadmap](docs/development-roadmap.md)
