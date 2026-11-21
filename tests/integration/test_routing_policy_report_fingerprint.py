@@ -48,11 +48,7 @@ def _run(
 
 def _attempted_models(records: list[dict[str, Any]]) -> list[list[str]]:
     return [
-        [
-            step["model"]
-            for step in record["payload"]["steps"]
-            if step["kind"] == "PROVIDER_ATTEMPT"
-        ]
+        [step["model"] for step in record["payload"]["steps"] if step["kind"] == "PROVIDER_ATTEMPT"]
         for record in records
         if record["record_type"] == "trace"
     ]
