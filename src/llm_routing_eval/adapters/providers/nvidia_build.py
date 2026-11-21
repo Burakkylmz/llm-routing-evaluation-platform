@@ -224,7 +224,7 @@ class NvidiaBuildProvider:
                 CallStatus.TIMEOUT,
                 retryable=True,
             )
-        except (NvidiaTransportError, Exception):
+        except Exception:
             # Fail closed: never expose exception repr, URL, prompt or key.
             return failed(ErrorCategory.PROVIDER, "NVIDIA_TRANSPORT_ERROR", retryable=True)
 
@@ -307,7 +307,11 @@ def _usage(raw: object) -> TokenUsage | None:
     completion = count(raw.get("completion_tokens"))
     prompt_details = raw.get("prompt_tokens_details")
     completion_details = raw.get("completion_tokens_details")
-    cached = count(prompt_details.get("cached_tokens")) if isinstance(prompt_details, dict) else None
+    cached = (
+        count(prompt_details.get("cached_tokens"))
+        if isinstance(prompt_details, dict)
+        else None
+    )
     reasoning = (
         count(completion_details.get("reasoning_tokens"))
         if isinstance(completion_details, dict)
