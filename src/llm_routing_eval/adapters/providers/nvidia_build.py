@@ -192,9 +192,7 @@ class NvidiaBuildProvider:
             return failed(ErrorCategory.VALIDATION, "NVIDIA_UNSUPPORTED_PARAMETERS")
         top_p = request.generation_parameters.get("top_p")
         if top_p is not None and (
-            isinstance(top_p, bool)
-            or not isinstance(top_p, (int, float))
-            or not 0 < top_p <= 1
+            isinstance(top_p, bool) or not isinstance(top_p, (int, float)) or not 0 < top_p <= 1
         ):
             return failed(ErrorCategory.VALIDATION, "NVIDIA_INVALID_TOP_P")
 
@@ -309,9 +307,7 @@ def _usage(raw: object) -> TokenUsage | None:
     prompt_details = raw.get("prompt_tokens_details")
     completion_details = raw.get("completion_tokens_details")
     cached = (
-        count(prompt_details.get("cached_tokens"))
-        if isinstance(prompt_details, dict)
-        else None
+        count(prompt_details.get("cached_tokens")) if isinstance(prompt_details, dict) else None
     )
     reasoning = (
         count(completion_details.get("reasoning_tokens"))
