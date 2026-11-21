@@ -77,7 +77,9 @@ def _request(**changes: Any) -> ModelRequest:
     return ModelRequest(**base)
 
 
-def _provider(transport: FakeTransport, *, live: bool = True, privacy: bool = True) -> NvidiaBuildProvider:
+def _provider(
+    transport: FakeTransport, *, live: bool = True, privacy: bool = True
+) -> NvidiaBuildProvider:
     return NvidiaBuildProvider(
         NvidiaBuildConfig(
             allowed_models=frozenset({MODEL}),
