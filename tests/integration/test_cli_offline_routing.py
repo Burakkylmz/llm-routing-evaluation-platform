@@ -21,9 +21,7 @@ runner = CliRunner()
     "strategy",
     ["always_large", "rule_based", "knn", "cascade"],
 )
-def test_all_routing_strategies_can_be_selected_from_cli(
-    tmp_path: Path, strategy: str
-) -> None:
+def test_all_routing_strategies_can_be_selected_from_cli(tmp_path: Path, strategy: str) -> None:
     output = tmp_path / f"{strategy}.jsonl"
     response = runner.invoke(
         app,
@@ -93,11 +91,7 @@ def test_cascade_reports_each_model_call(tmp_path: Path) -> None:
     assert result.exit_code == 0, result.output
     records = [json.loads(line) for line in output.read_text(encoding="utf-8").splitlines()]
     attempts_per_case = [
-        [
-            step["model"]
-            for step in record["payload"]["steps"]
-            if step["kind"] == "PROVIDER_ATTEMPT"
-        ]
+        [step["model"] for step in record["payload"]["steps"] if step["kind"] == "PROVIDER_ATTEMPT"]
         for record in records
         if record["record_type"] == "trace"
     ]
@@ -136,9 +130,7 @@ def test_knn_rejects_duplicate_development_test_id(tmp_path: Path) -> None:
     settings["routing"]["knn"]["examples"][0]["example_id"] = "demo-card-001"
     config = tmp_path / "leak.yaml"
     config.write_text(yaml.safe_dump(settings), encoding="utf-8")
-    result = runner.invoke(
-        app, ["run", "--config", str(config), "--strategy", "knn"]
-    )
+    result = runner.invoke(app, ["run", "--config", str(config), "--strategy", "knn"])
     assert result.exit_code == 2
     assert "KNN_DEVELOPMENT_TEST_LEAKAGE" in result.output
 
@@ -154,9 +146,7 @@ def test_knn_rejects_duplicate_development_test_id(tmp_path: Path) -> None:
         lambda s: s["routing"]["knn"].update(extra_secret="oops"),
     ],
 )
-def test_unsafe_yaml_is_rejected(
-    tmp_path: Path, mutation: object
-) -> None:
+def test_unsafe_yaml_is_rejected(tmp_path: Path, mutation: object) -> None:
     settings = yaml.safe_load(CONFIG.read_text(encoding="utf-8"))
     assert callable(mutation)
     mutation(settings)
