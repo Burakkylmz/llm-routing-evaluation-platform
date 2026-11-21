@@ -155,6 +155,9 @@ class GroqProvider:
 
     async def generate(self, request: ModelRequest) -> ModelResponse:
         start = perf_counter()
+        safe_model = (
+            request.model if request.model in self._config.allowed_models else "unapproved-model"
+        )
 
         def failure(
             category: ErrorCategory,
@@ -165,7 +168,7 @@ class GroqProvider:
         ) -> ModelResponse:
             return ModelResponse(
                 provider="groq",
-                model=request.model,
+                model=safe_model,
                 attempt_id=request.attempt_id,
                 status=status,
                 metric_origin=MetricOrigin.OBSERVED,
