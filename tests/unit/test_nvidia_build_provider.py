@@ -116,7 +116,7 @@ def test_missing_api_key_fails_without_network(monkeypatch: pytest.MonkeyPatch) 
 
 
 @pytest.mark.parametrize(
-    "request",
+    "model_request",
     [
         _request(provider="groq"),
         _request(model="unapproved/model"),
@@ -126,11 +126,11 @@ def test_missing_api_key_fails_without_network(monkeypatch: pytest.MonkeyPatch) 
     ],
 )
 def test_invalid_model_or_parameters_never_sent(
-    monkeypatch: pytest.MonkeyPatch, request: ModelRequest
+    monkeypatch: pytest.MonkeyPatch, model_request: ModelRequest
 ) -> None:
     monkeypatch.setenv("NVIDIA_API_KEY", "fixture-key")
     transport = FakeTransport()
-    result = _run(_provider(transport), request)
+    result = _run(_provider(transport), model_request)
     assert result.status is CallStatus.FAILED
     assert result.error is not None and result.error.category is ErrorCategory.VALIDATION
     assert not transport.calls
