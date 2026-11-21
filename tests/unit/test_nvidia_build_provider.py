@@ -274,3 +274,130 @@ def test_invalid_configuration_is_rejected() -> None:
         NvidiaBuildConfig(allowed_models=frozenset())
     with pytest.raises(ValueError, match="NVIDIA_MODEL_CONFIGURATION_INVALID"):
         NvidiaBuildConfig(allowed_models=frozenset({"bad model!"}))
+
+
+def test_https_transport_uses_fixed_endpoint_and_disables_redirects(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import llm_routing_eval.adapters.providers.nvidia_build as module
+
+    class Response:
+        status = 200
+
+        def __enter__(self) -> "Response":
+            return self
+
+        def __exit__(self, *_args: object) -> None:
+            pass
+
+        def read(self, max_bytes: int) -> bytes:
+            assert max_bytes == 2_000_001
+            return b'{"choices":[]}'
+
+    class Opener:
+        def open(self, request: Any, *, timeout: float) -> Response:
+            assert request.full_url == module.NVIDIA_CHAT_ENDPOINT
+            assert request.get_header("Authorization") == "Bearer fixture-key"
+            assert request.get_header("Content-type") == "application/json"
+            assert timeout == 4.0
+            return Response()
+
+    def build(handler: Any) -> Opener:
+        assert isinstance(handler, module._RejectRedirects)
+        return Opener()
+
+    monkeypatch.setattr(module, "build_opener", build)
+    outcome = module.NvidiaHttpTransport()._request(
+        {"model": MODEL}, api_key="fixture-key", timeout_seconds=4.0
+    )
+    assert outcome.status_code == 200
+    assert outcome.body == b'{"choices":[]}'
+
+
+def test_https_transport_does_not_follow_redirects() -> None:
+    from urllib.request import Request
+
+    import llm_routing_eval.adapters.providers.nvidia_build as module
+
+    handler = module._RejectRedirects()
+    request = Request(module.NVIDIA_CHAT_ENDPOINT, method="POST")
+    assert (
+        handler.redirect_request(
+            request, None, 302, "redirect", {}, "https://untrusted.example/redirect"
+        )
+        is None
+    )
+
+
+def test_https_transport_does_not_read_http_error_body(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from urllib.error import HTTPError
+
+    import llm_routing_eval.adapters.providers.nvidia_build as module
+
+    class Opener:
+        def open(self, _request: Any, *, timeout: float) -> Any:
+            _ = timeout
+            raise HTTPError(module.NVIDIA_CHAT_ENDPOINT, 429, "possibly-sensitive", {}, None)
+
+    monkeypatch.setattr(module, "build_opener", lambda handler: Opener())
+    result = module.NvidiaHttpTransport()._request(
+        {"model": MODEL}, api_key="fixture-key", timeout_seconds=4.0
+    )
+    assert result.status_code == 429
+    assert result.body == b""
+
+
+@pytest.mark.parametrize(
+    "reason,expected",
+    [
+        ("secret network message", NvidiaTransportError),
+        (TimeoutError("secret"), NvidiaTransportTimeout),
+    ],
+)
+def test_https_transport_converts_network_errors_to_safe_types(
+    monkeypatch: pytest.MonkeyPatch, reason: object, expected: type[Exception]
+) -> None:
+    from urllib.error import URLError
+
+    import llm_routing_eval.adapters.providers.nvidia_build as module
+
+    class Opener:
+        def open(self, _request: Any, *, timeout: float) -> Any:
+            _ = timeout
+            raise URLError(reason)
+
+    monkeypatch.setattr(module, "build_opener", lambda handler: Opener())
+    with pytest.raises(expected) as exc:
+        module.NvidiaHttpTransport()._request(
+            {"model": MODEL}, api_key="fixture-key", timeout_seconds=4.0
+        )
+    assert "secret" not in str(exc.value)
+
+
+def test_https_transport_rejects_oversized_response(monkeypatch: pytest.MonkeyPatch) -> None:
+    import llm_routing_eval.adapters.providers.nvidia_build as module
+
+    class Response:
+        status = 200
+
+        def __enter__(self) -> "Response":
+            return self
+
+        def __exit__(self, *_args: object) -> None:
+            pass
+
+        def read(self, max_bytes: int) -> bytes:
+            return b"x" * max_bytes
+
+    class Opener:
+        def open(self, _request: Any, *, timeout: float) -> Response:
+            _ = timeout
+            return Response()
+
+    monkeypatch.setattr(module, "build_opener", lambda handler: Opener())
+    with pytest.raises(NvidiaTransportError, match="NVIDIA_RESPONSE_TOO_LARGE"):
+        module.NvidiaHttpTransport()._request(
+            {"model": MODEL}, api_key="fixture-key", timeout_seconds=4.0
+        )
