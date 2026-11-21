@@ -29,6 +29,41 @@ The `routing` YAML key contains:
 
 The YAML parser forbids unknown configuration keys and invalid enum/rule/split values. Both `--live` and `BENCHMARK_MODE=live` are rejected; live provider settings are not reachable from this CLI. Demo evaluation only checks synthetic fake response equality; it is **not** financial accuracy, quality calibration or production throughput. Demo token usage is simulated; cost remains unknown (not zero).
 
+## Configuration fingerprint reproducibility
+
+The offline CLI now supplies a `routing_policy_digest` when constructing
+`RunOptions`. The application includes that digest in the existing
+`RunOptions.fingerprint()`, which populates
+`BenchmarkReport.configuration_fingerprint` (a 64-hex-character SHA-256).
+No persisted report schema or Core `RouterPort` contract changes.
+
+The digest is computed from **validated, canonical JSON** containing the
+selected strategy, the configured model pair, a policy schema version
+(`offline-routing-policy-v1`) and **only the selected routing policy**:
+
+- Always-Large: baseline policy version and model pair.
+- Rule-Based: ordered rules, scenario types, tier choices and default tier.
+- kNN: `k`, threshold, embedding dimensions/implementation and the ordered
+  synthetic development examples (their IDs, tiers and text).
+- Cascade: escalation-on-failure and canonicalized escalation scenario set.
+
+`--strategy` selects which policy gets fingerprinted, not necessarily the
+YAML's default `benchmark.strategy`. Unused policy sections do not affect
+the selected policy digest. Reordered YAML mapping keys and semantically
+identical Cascade scenario sets produce identical hashes.
+
+**Privacy:** kNN development text influences the SHA-256 internally but is
+never placed into the `RunOptions` or serialized JSONL. A digest is a
+reproducibility identifier, **not** anonymization or authorization to use real
+customer data; only the existing synthetic development fixtures are supported.
+The full report hash also covers `RunOptions` controls such as the model-call
+budget. Earlier reports created before this change should not be assumed
+fingerprint-compatible.
+
+Direct programmatic callers using `RunOptions` without the CLI remain
+backwards compatible (`routing_policy_digest=None`); any new composition
+root must provide a digest of the effective policy for comparable reports.
+
 ## Groq adapter (isolated, not wired live)
 
 Implementation: `src/llm_routing_eval/adapters/providers/groq.py` implements async `LLMProviderPort` via a transport `Protocol`, with no Core/CLI changes. It uses Groq's official Chat Completions endpoint:
