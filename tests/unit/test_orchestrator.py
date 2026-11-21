@@ -88,7 +88,6 @@ def test_offline_success_id_relationships_and_simulated_cost() -> None:
         TraceStepKind.PRIVACY_CHECK,
         TraceStepKind.ROUTING_DECISION,
         TraceStepKind.PROVIDER_ATTEMPT,
-        TraceStepKind.ROUTING_DECISION,
         TraceStepKind.EVALUATION,
     ]
     metrics = result.report.strategy_metrics[StrategyId.ALWAYS_LARGE]
@@ -219,6 +218,128 @@ def test_cascade_multiple_decisions_and_model_calls() -> None:
         "large",
     ]
     assert len([step for step in trace.steps if step.decision is not None]) == 2
+
+
+def test_baseline_stops_after_first_success_even_if_router_never_finishes() -> None:
+    class NonCompliantRouter:
+        def __init__(self) -> None:
+            self.decisions = 0
+
+        async def decide(self, case: BenchmarkCase, context: RoutingContext) -> RoutingDecision:
+            self.decisions += 1
+            return RoutingDecision(
+                strategy=StrategyId.ALWAYS_LARGE,
+                action=RoutingAction.INVOKE_MODEL,
+                selected_model="large",
+                stage_index=context.current_stage,
+                decision_time_ms=0,
+                reason_code="INVOKE_AGAIN",
+            )
+
+    router = NonCompliantRouter()
+    engine, _ = setup(router=router)
+    result = asyncio.run(engine.run([fixture_case()], opts(max_model_calls_per_case=3)))
+    attempts = [
+        step for step in result.traces[0].steps if step.kind is TraceStepKind.PROVIDER_ATTEMPT
+    ]
+    assert result.traces[0].status is ExecutionStatus.COMPLETED
+    assert router.decisions == 1
+    assert len(attempts) == 1
+
+
+def test_cascade_keeps_successful_answer_when_escalation_fails() -> None:
+    class TwoStageRouter:
+        async def decide(self, case: BenchmarkCase, context: RoutingContext) -> RoutingDecision:
+            return RoutingDecision(
+                strategy=StrategyId.CASCADE,
+                action=RoutingAction.INVOKE_MODEL,
+                selected_model="small" if context.current_stage == 0 else "large",
+                stage_index=context.current_stage,
+                decision_time_ms=0,
+                reason_code="ESCALATE",
+            )
+
+    class FailingLargeProvider:
+        async def generate(self, request: ModelRequest) -> ModelResponse:
+            if request.model == "small":
+                return await DemoFakeProvider().generate(request)
+            return ModelResponse(
+                provider=request.provider,
+                model=request.model,
+                attempt_id=request.attempt_id,
+                status=CallStatus.FAILED,
+                metric_origin=MetricOrigin.SIMULATED,
+                error=ErrorInfo(category=ErrorCategory.PROVIDER, code="LARGE_FAILED"),
+            )
+
+    engine, _ = setup(router=TwoStageRouter(), provider=FailingLargeProvider())
+    result = asyncio.run(
+        engine.run([fixture_case()], opts(strategy=StrategyId.CASCADE, max_model_calls_per_case=2))
+    )
+    attempts = [
+        step for step in result.traces[0].steps if step.kind is TraceStepKind.PROVIDER_ATTEMPT
+    ]
+    assert [attempt.call_status for attempt in attempts] == [
+        CallStatus.SUCCESS,
+        CallStatus.FAILED,
+    ]
+    assert result.traces[0].status is ExecutionStatus.COMPLETED
+    assert result.evaluations[0].status is EvaluationStatus.COMPLETED
+    assert result.evaluations[0].quality_scores["demo_fixture_match"] == 1.0
+
+
+def test_cascade_retries_cannot_exceed_global_model_call_budget() -> None:
+    class RetryingRouter:
+        def __init__(self) -> None:
+            self.decisions = 0
+
+        async def decide(self, case: BenchmarkCase, context: RoutingContext) -> RoutingDecision:
+            self.decisions += 1
+            return RoutingDecision(
+                strategy=StrategyId.CASCADE,
+                action=RoutingAction.INVOKE_MODEL,
+                selected_model="small" if context.current_stage == 0 else "large",
+                stage_index=context.current_stage,
+                decision_time_ms=0,
+                reason_code="RETRY_STAGE",
+            )
+
+    class RetryableTimeout:
+        def __init__(self) -> None:
+            self.calls = 0
+
+        async def generate(self, request: ModelRequest) -> ModelResponse:
+            self.calls += 1
+            return ModelResponse(
+                provider=request.provider,
+                model=request.model,
+                attempt_id=request.attempt_id,
+                status=CallStatus.TIMEOUT,
+                metric_origin=MetricOrigin.SIMULATED,
+                error=ErrorInfo(
+                    category=ErrorCategory.PROVIDER_TIMEOUT, code="TIMEOUT", retryable=True
+                ),
+            )
+
+    async def no_sleep(seconds: float) -> None:
+        pass
+
+    router = RetryingRouter()
+    provider = RetryableTimeout()
+    engine, _ = setup(router=router, provider=provider, sleep=no_sleep)
+    result = asyncio.run(
+        engine.run(
+            [fixture_case()],
+            opts(strategy=StrategyId.CASCADE, max_model_calls_per_case=2, max_retries=3),
+        )
+    )
+    attempts = [
+        step for step in result.traces[0].steps if step.kind is TraceStepKind.PROVIDER_ATTEMPT
+    ]
+    assert result.traces[0].status is ExecutionStatus.FAILED
+    assert result.evaluations[0].status is EvaluationStatus.NOT_EVALUATED
+    assert router.decisions == 1
+    assert provider.calls == len(attempts) == 2
 
 
 def test_unapproved_model_is_not_called() -> None:
