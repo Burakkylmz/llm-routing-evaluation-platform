@@ -1,6 +1,6 @@
 # LLM Routing Evaluation Platform - V1.1
 
-**Status:** Member 01 core + application + CLI **offline demo implemented**. Real routing, provider, privacy, dataset evaluation and durable reporting adapters are not yet implemented.
+**Status:** Member 01 core, application and CLI offline demo implemented. Member 02 offline routing strategies are implemented behind the RouterPort; they are not yet configurable through the CLI. Live providers, production privacy, dataset evaluation and durable reporting remain pending.
 
 An open-source, domain-independent framework to evaluate whether LLM routing strategies improve cost, answer quality and latency on controlled workloads. The first domain pack targets **Turkish Retail Banking & Customer Support**.
 
@@ -9,7 +9,7 @@ An open-source, domain-independent framework to evaluate whether LLM routing str
 - Python 3.12+, uv, TOML, YAML, Docker
 - Modular monolith, SOLID/OOP and pragmatic Ports & Adapters
 - Pydantic v2 contracts, Typer CLI, async dependency injection through Ports
-- Strategies: Always-Large, Rule-Based, kNN, Cascade (not yet implemented by Member 02)
+- Strategies: Always-Large, Rule-Based, kNN and Cascade (offline RouterPort implementations; CLI integration pending)
 - Primary live provider: Groq (later, opt-in); NVIDIA Build (post-MVP)
 
 ## Member 01 offline smoke test
@@ -47,6 +47,7 @@ uv run pytest -q --cov=llm_routing_eval
 - [Architecture](docs/architecture.md)
 - [Decision log](docs/decisions.md)
 - [Member 01 implementation and handoff](docs/member01-implementation.md)
+- [Member 02 offline routing implementation](docs/member02-implementation.md)
 - [Core contract specification](docs/contracts.md)
 - [Development roadmap](docs/development-roadmap.md)
 - [Contributor guidance](docs/contributing.md)
