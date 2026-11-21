@@ -1,7 +1,7 @@
 # Member 02 — Offline Routing Implementation
 
 **Scope:** Real offline routing decisions behind the existing Core `RouterPort`.
-**Status:** Implemented for review on Member 02's feature PR. Real provider adapters, model access, privacy, durable cost accounting, and expert-verified quality evaluation remain outstanding.
+**Status:** Offline routing implementation ported into a main-based integration branch for review. Groq provider, live model access, actual privacy enforcement, durable cost accounting and expert-verified quality evaluation remain outstanding. The NVIDIA Build M5 adapter is separately on main, offline-tested only.
 
 ## Architecture and boundaries
 
@@ -38,4 +38,4 @@ The integration test executes all four routers on the **same synthetic, allowlis
 1. Review routing semantics and `RouterPort` contracts with Members 01/03/04.
 2. Add validated YAML router configuration and application composition integration, keeping the offline-only defaults.
 3. Add the Groq provider adapter behind `LLMProviderPort` with safe error normalization, usage attribution, explicit opt-in, and a network-disabled test suite.
-4. After MVP, implement and verify a separate NVIDIA Build compatibility adapter.
+4. Review the existing NVIDIA Build M5 adapter separately before live use; its offline transport tests are complete, but model availability, account access and live benchmark integration are unverified.
