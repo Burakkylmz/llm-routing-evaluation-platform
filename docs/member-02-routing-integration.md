@@ -2,7 +2,7 @@
 
 **Project:** LLM Routing Evaluation Platform\
 **Role:** Routing Strategies & Provider Integration Owner\
-**Status:** Planned — no implementation started
+**Status:** Offline routing algorithms and tests implemented in Member 02's feature branch; CLI configuration, live providers, joint contract approval and benchmark validation remain pending. See [implementation notes](member02-implementation.md).
 
 ## Mission
 
