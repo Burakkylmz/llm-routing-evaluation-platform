@@ -85,8 +85,10 @@ def test_all_four_strategies_share_orchestrator_contract(
         attempts = [
             step.model for step in trace.steps if step.kind is TraceStepKind.PROVIDER_ATTEMPT
         ]
-        return trace.status, [model for model in attempts if model is not None], (
-            run.evaluations[0].quality_scores.get("demo_fixture_match") == 1.0
+        return (
+            trace.status,
+            [model for model in attempts if model is not None],
+            (run.evaluations[0].quality_scores.get("demo_fixture_match") == 1.0),
         )
 
     status, models, fixture_match = asyncio.run(execute())
