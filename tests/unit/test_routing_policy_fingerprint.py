@@ -56,7 +56,9 @@ def test_each_strategy_has_a_stable_non_disclosing_digest(strategy: StrategyId) 
         (StrategyId.RULE_BASED, lambda x: x["routing"]["rule_based"].update(default_tier="small")),
         (
             StrategyId.RULE_BASED,
-            lambda x: x["routing"]["rule_based"]["rules"].reverse(),
+            lambda x: x["routing"]["rule_based"].update(
+                rules=tuple(reversed(x["routing"]["rule_based"]["rules"]))
+            ),
         ),
         (StrategyId.KNN, lambda x: x["routing"]["knn"].update(k=2)),
         (StrategyId.KNN, lambda x: x["routing"]["knn"].update(minimum_similarity=0.8)),
