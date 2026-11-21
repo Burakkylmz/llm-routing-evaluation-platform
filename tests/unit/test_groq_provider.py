@@ -146,6 +146,18 @@ def test_rejects_unsupported_requests_without_network(
     assert fake.calls == []
 
 
+def test_unapproved_model_identifier_is_never_echoed_in_failure(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("GROQ_API_KEY", "fixture-key")
+    fake = FakeTransport()
+    reply = _run(_provider(fake), _request(model="sensitive-user-token-should-not-appear"))
+    assert reply.status is CallStatus.FAILED
+    assert reply.model == "unapproved-model"
+    assert "sensitive-user-token" not in repr(reply)
+    assert fake.calls == []
+
+
 def test_success_and_observed_token_counts(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("GROQ_API_KEY", "test-secret-key")
     fake = FakeTransport()
