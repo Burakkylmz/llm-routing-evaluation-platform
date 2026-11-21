@@ -135,7 +135,6 @@ def read_settings(path: Path, *, mode_override: str | None = None) -> OfflineSet
         raise BenchmarkInputError("CONFIG_INVALID") from exc
 
 
-
 def routing_policy_digest(settings: OfflineSettings, strategy: StrategyId) -> str:
     """Fingerprint the *effective* selected policy, not unrelated YAML sections.
 
