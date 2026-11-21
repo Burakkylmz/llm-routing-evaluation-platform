@@ -10,9 +10,10 @@ import asyncio
 import json
 import os
 import re
+from collections.abc import Mapping
 from dataclasses import dataclass
 from time import perf_counter
-from typing import Any, Mapping, Protocol
+from typing import Any, Protocol
 from urllib.error import HTTPError, URLError
 from urllib.request import (
     HTTPRedirectHandler,
