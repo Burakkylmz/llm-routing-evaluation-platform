@@ -6,6 +6,8 @@ and actual outbound requests are deliberately not part of offline composition.
 
 from __future__ import annotations
 
+import hashlib
+import json
 import os
 from pathlib import Path
 from typing import Literal, Self
@@ -133,6 +135,44 @@ def read_settings(path: Path, *, mode_override: str | None = None) -> OfflineSet
         raise BenchmarkInputError("CONFIG_INVALID") from exc
 
 
+
+def routing_policy_digest(settings: OfflineSettings, strategy: StrategyId) -> str:
+    """Fingerprint the *effective* selected policy, not unrelated YAML sections.
+
+    kNN example text affects the digest but is never exported. This SHA-256 is
+    for run reproducibility, not a substitute for privacy sanitization.
+    """
+
+    if strategy is StrategyId.ALWAYS_LARGE:
+        selected_policy: dict[str, object] = {"baseline": "large-only-v1"}
+    elif strategy is StrategyId.RULE_BASED:
+        selected_policy = settings.routing.rule_based.model_dump(mode="json")
+    elif strategy is StrategyId.KNN:
+        selected_policy = {
+            "knn": settings.routing.knn.model_dump(mode="json"),
+            "embedding_implementation": "sha256-lexical-feature-hash-v1",
+        }
+    elif strategy is StrategyId.CASCADE:
+        cascade = settings.routing.cascade
+        selected_policy = {
+            "escalate_scenarios": sorted(set(cascade.escalate_scenarios)),
+            "escalate_on_failure": cascade.escalate_on_failure,
+        }
+    else:
+        raise BenchmarkInputError("UNSUPPORTED_ROUTING_STRATEGY")
+
+    payload = {
+        "fingerprint_schema": "offline-routing-policy-v1",
+        "strategy": strategy.value,
+        "models": settings.routing.models.model_dump(mode="json"),
+        "selected_policy": selected_policy,
+    }
+    canonical = json.dumps(
+        payload, sort_keys=True, ensure_ascii=False, separators=(",", ":")
+    ).encode("utf-8")
+    return "sha256:" + hashlib.sha256(canonical).hexdigest()
+
+
 def demo_options(
     settings: OfflineSettings,
     *,
@@ -154,4 +194,5 @@ def demo_options(
         allowed_models=(settings.routing.models.small, settings.routing.models.large),
         max_model_calls_per_case=settings.execution.max_model_calls_per_case,
         max_retries=settings.execution.max_retries,
+        routing_policy_digest=routing_policy_digest(settings, strategy),
     )
