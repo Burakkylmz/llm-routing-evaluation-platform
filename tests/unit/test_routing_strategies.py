@@ -1,6 +1,7 @@
 """Member 02 routing tests: deterministic, synthetic and network-free."""
 
 import asyncio
+
 import pytest
 
 from llm_routing_eval.core import (
