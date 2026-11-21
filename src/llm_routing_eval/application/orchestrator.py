@@ -64,6 +64,9 @@ class RunOptions(BaseModel):
     temperature: float | None = Field(default=0, ge=0, le=2)
     max_output_tokens: int | None = Field(default=128, gt=0)
     prompt_version: str = "offline-demo-v1"
+    # Digest of the effective strategy policy, supplied by the composition root.
+    # Keep configuration details (notably kNN training text) out of persisted reports.
+    routing_policy_digest: str | None = Field(default=None, pattern=r"^sha256:[0-9a-f]{64}$")
 
     @model_validator(mode="after")
     def validate_models(self) -> Self:
