@@ -204,6 +204,10 @@ class BenchmarkOrchestrator:
         decisions: list[RoutingDecision] = []
         feedback: list[RoutingFeedback] = []
         response: ModelResponse | None = None
+        # Cascade may try a higher-tier model after a successful lower-tier answer.
+        # Keep that answer available if the escalation ultimately fails.
+        last_successful_response: ModelResponse | None = None
+        model_calls_used = 0
         last_error: ErrorInfo | None = None
         status = ExecutionStatus.FAILED
 
@@ -229,9 +233,13 @@ class BenchmarkOrchestrator:
                 safe_case = case.model_copy(update={"input_text": permitted.text, "metadata": {}})
                 add_step(TraceStepKind.PRIVACY_CHECK, safe_metadata={"status": "ALLOWED"})
                 for stage in range(options.max_model_calls_per_case):
+                    # The cap applies to all provider attempts, including retries.
+                    remaining_calls = options.max_model_calls_per_case - model_calls_used
+                    if remaining_calls <= 0:
+                        break
                     context = RoutingContext(
                         current_stage=stage,
-                        remaining_model_calls=options.max_model_calls_per_case - stage,
+                        remaining_model_calls=remaining_calls,
                         prior_decisions=tuple(decisions),
                         prior_attempts=tuple(feedback),
                     )
@@ -283,7 +291,7 @@ class BenchmarkOrchestrator:
                         add_step(TraceStepKind.PRIVACY_CHECK, error=last_error)
                         break
                     assert decision.selected_model is not None
-                    response = await self._invoke_with_retries(
+                    response, attempts_used = await self._invoke_with_retries(
                         options,
                         run_id,
                         trace_id,
@@ -291,7 +299,9 @@ class BenchmarkOrchestrator:
                         decision.selected_model,
                         sanitized_prompt.text,
                         add_step,
+                        remaining_call_budget=remaining_calls,
                     )
+                    model_calls_used += attempts_used
                     feedback.append(
                         RoutingFeedback(
                             attempt_id=response.attempt_id,
@@ -302,7 +312,12 @@ class BenchmarkOrchestrator:
                             else None,
                         )
                     )
-                    if response.status is not CallStatus.SUCCESS:
+                    if response.status is CallStatus.SUCCESS:
+                        last_successful_response = response
+                        # A non-Cascade strategy must make exactly one model invocation.
+                        if options.strategy is not StrategyId.CASCADE:
+                            break
+                    else:
                         last_error = (
                             _error(
                                 response.error.category,
@@ -324,6 +339,8 @@ class BenchmarkOrchestrator:
             last_error = _error(ErrorCategory.UNKNOWN, "EXECUTION_FAILED")
             add_step(TraceStepKind.ERROR, error=last_error)
 
+        if last_successful_response is not None:
+            response = last_successful_response
         succeeded = response is not None and response.status is CallStatus.SUCCESS
         if status is not ExecutionStatus.BLOCKED:
             status = ExecutionStatus.COMPLETED if succeeded else ExecutionStatus.FAILED
@@ -417,9 +434,14 @@ class BenchmarkOrchestrator:
         model: str,
         prompt: str,
         add_step: Callable[..., None],
-    ) -> ModelResponse:
+        *,
+        remaining_call_budget: int,
+    ) -> tuple[ModelResponse, int]:
+        if remaining_call_budget <= 0:
+            raise BenchmarkInputError("MODEL_CALL_BUDGET_EXHAUSTED")
         result: ModelResponse | None = None
-        for index in range(options.max_retries + 1):
+        attempt_limit = min(options.max_retries + 1, remaining_call_budget)
+        for index in range(attempt_limit):
             attempt_id = uuid4().hex
             request = ModelRequest(
                 run_id=run_id,
@@ -475,14 +497,14 @@ class BenchmarkOrchestrator:
                 else None,
             )
             if result.status is CallStatus.SUCCESS or not (
-                result.error is not None and result.error.retryable and index < options.max_retries
+                result.error is not None and result.error.retryable and index + 1 < attempt_limit
             ):
-                return result
+                return result, index + 1
             # Bounded exponential backoff + jitter; provider Retry-After support belongs
             # in a later provider policy extension, not the fake provider.
             await self._sleep(min(2.0, (2**index) * random.random()))
         assert result is not None
-        return result
+        return result, attempt_limit
 
 
 _SAFE_CODE_PATTERN = re.compile(r"^[A-Za-z0-9_./-]{1,80}$")
