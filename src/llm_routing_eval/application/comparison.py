@@ -20,7 +20,7 @@ from collections.abc import Awaitable, Callable, Sequence
 from datetime import UTC, datetime
 from typing import Literal, Self
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, computed_field, model_validator
 
 from llm_routing_eval.core import (
     BenchmarkCase,
@@ -80,6 +80,7 @@ class ComparisonRow(BaseModel):
     fixture_score_samples: int = Field(ge=0)
     cost_amount: None = None  # no verified pricing: unknown, not zero
 
+    @computed_field(return_type=int)
     @property
     def strict_successful_cases(self) -> int:
         """Comparable with baselines: excludes retained lower-tier answers."""
