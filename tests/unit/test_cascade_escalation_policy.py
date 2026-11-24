@@ -122,9 +122,7 @@ def test_default_policy_preserves_model_choice_and_reason_code(
     expected_model: str | None,
     reason: str,
 ) -> None:
-    router = CascadeRouter(
-        MODELS, escalate_scenarios=scenarios, escalate_on_failure=on_failure
-    )
+    router = CascadeRouter(MODELS, escalate_scenarios=scenarios, escalate_on_failure=on_failure)
     decision = asyncio.run(router.decide(_case(scenario), _context(status=status)))
 
     assert decision.strategy is StrategyId.CASCADE
@@ -149,19 +147,14 @@ class CustomPolicy:
 
     calls: int = 0
 
-    def evaluate(
-        self, case: BenchmarkCase, feedback: RoutingFeedback
-    ) -> CascadeEscalationDecision:
+    def evaluate(self, case: BenchmarkCase, feedback: RoutingFeedback) -> CascadeEscalationDecision:
         self.calls += 1
         return CascadeEscalationDecision(
             escalate=(
-                case.scenario_type == "synthetic_special"
-                and feedback.status is CallStatus.SUCCESS
+                case.scenario_type == "synthetic_special" and feedback.status is CallStatus.SUCCESS
             ),
             reason_code=(
-                "CUSTOM_ESCALATE"
-                if case.scenario_type == "synthetic_special"
-                else "CUSTOM_ACCEPT"
+                "CUSTOM_ESCALATE" if case.scenario_type == "synthetic_special" else "CUSTOM_ACCEPT"
             ),
         )
 
