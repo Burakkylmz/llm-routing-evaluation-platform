@@ -64,3 +64,18 @@ Implement four **interchangeable, explainable routing strategies** and reliable 
 3. Implement **kNN** and **Cascade** with isolated development data, calibrated conditions, and call-level accounting.
 4. Integrate **Groq** and verify controlled live calls; add **NVIDIA Build** compatibility tests in the secondary phase.
 5. Validate end-to-end benchmark integration with Members 01, 03, and 04.
+
+## F1 defense-in-depth — Legacy transport rejection (Issue #21)
+
+The built-in `GroqHttpTransport` and `NvidiaHttpTransport` use
+`asyncio.to_thread`, which cannot cancel an in-flight urllib request.
+Neither class is a safe live provider transport. Groq/NVIDIA providers now
+**reject explicitly injected legacy transports** with stable non-retryable
+`*_UNSAFE_THREAD_TRANSPORT` errors before the request is dispatched.
+
+These classes remain accessible only for isolated historical unit tests of
+their low-level HTTP behavior. Production provider composition must use
+reviewed cancellable native-async transports such as the HTTPX adapters.
+Other custom `LLMProviderPort` transports require their own cancellation,
+deadline and privacy review; dependency injection by itself does not prove
+those guarantees. No change authorizes live API calls or overrides Phase E.
