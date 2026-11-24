@@ -12,6 +12,7 @@ import hashlib
 import json
 import os
 import tempfile
+from collections.abc import Sequence
 from pathlib import Path
 from typing import Literal, Self
 
@@ -25,6 +26,8 @@ from llm_routing_eval.cli.configuration import (
     KnnSettings,
     OfflineSettings,
 )
+from llm_routing_eval.cli.development_isolation import enforce_development_isolation
+from llm_routing_eval.core import BenchmarkCase
 from llm_routing_eval.routing.calibration import (
     MAX_CALIBRATION_EXAMPLES,
     CalibrationExample,
@@ -83,6 +86,36 @@ class CalibrationDataset(_Frozen):
             for ex in self.examples
         )
 
+    def development_settings(self) -> tuple[DevelopmentExampleSettings, ...]:
+        """Build the exact labeled examples used by a calibrated kNN index."""
+        return tuple(
+            DevelopmentExampleSettings(
+                example_id=ex.example_id,
+                input_text=ex.input_text,
+                tier=ex.tier,
+                split="development",
+                synthetic=True,
+            )
+            for ex in self.examples
+        )
+
+
+def enforce_calibration_isolation(
+    settings: OfflineSettings,
+    dataset: CalibrationDataset,
+    cases: Sequence[BenchmarkCase],
+) -> None:
+    """Fail closed before embedding, scoring or producing an output artifact.
+
+    Validate overlap using the exact development examples that will later be
+    written to the calibrated configuration. This check is required even if
+    no viable kNN hyperparameter can be selected.
+    """
+    knn = settings.routing.knn.model_copy(update={"examples": dataset.development_settings()})
+    routing = settings.routing.model_copy(update={"knn": knn})
+    candidate = settings.model_copy(update={"routing": routing})
+    enforce_development_isolation(candidate, cases)
+
 
 def read_calibration_dataset(path: Path) -> CalibrationDataset:
     try:
@@ -108,16 +141,7 @@ def apply_calibration(
         k=knn.selected.k,
         minimum_similarity=knn.selected.minimum_similarity,
         embedding_dimensions=settings.routing.knn.embedding_dimensions,
-        examples=tuple(
-            DevelopmentExampleSettings(
-                example_id=ex.example_id,
-                input_text=ex.input_text,
-                tier=ex.tier,
-                split="development",
-                synthetic=True,
-            )
-            for ex in dataset.examples
-        ),
+        examples=dataset.development_settings(),
     )
     cascade_settings = CascadeSettings(
         escalate_scenarios=cascade.escalate_scenarios,
