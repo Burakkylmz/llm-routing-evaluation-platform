@@ -28,6 +28,8 @@ from llm_routing_eval.core import (
     TokenUsage,
 )
 
+from .retry_after import checked_hint
+
 GROQ_CHAT_ENDPOINT = "https://api.groq.com/openai/v1/chat/completions"
 _MAX_BODY_BYTES = 2_000_000
 _MODEL_ID = re.compile(r"^[a-zA-Z0-9][a-zA-Z0-9_./-]{0,127}$")
@@ -54,6 +56,8 @@ class GroqConfig:
 class GroqHttpResult:
     status_code: int
     body: bytes
+    # Parsed numeric Retry-After seconds for HTTP 429 only; never the raw header.
+    retry_after_seconds: float | None = None
 
 
 class GroqTransportTimeout(Exception):
@@ -173,6 +177,7 @@ class GroqProvider:
             status: CallStatus = CallStatus.FAILED,
             *,
             retryable: bool = False,
+            retry_after_seconds: float | None = None,
         ) -> ModelResponse:
             return ModelResponse(
                 provider="groq",
@@ -181,7 +186,12 @@ class GroqProvider:
                 status=status,
                 metric_origin=MetricOrigin.OBSERVED,
                 latency_ms=(perf_counter() - start) * 1000,
-                error=ErrorInfo(category=category, code=code, retryable=retryable),
+                error=ErrorInfo(
+                    category=category,
+                    code=code,
+                    retryable=retryable,
+                    retry_after_seconds=retry_after_seconds,
+                ),
             )
 
         if not self._config.live_enabled or not self._config.privacy_approved:
@@ -239,6 +249,7 @@ class GroqProvider:
                     "GROQ_RATE_LIMITED",
                     CallStatus.RATE_LIMITED,
                     retryable=True,
+                    retry_after_seconds=checked_hint(response.retry_after_seconds),
                 )
             if status in (408, 504):
                 return failure(

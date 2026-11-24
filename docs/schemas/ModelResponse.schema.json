@@ -52,6 +52,21 @@
           ],
           "default": null,
           "title": "Safe Message"
+        },
+        "retry_after_seconds": {
+          "anyOf": [
+            {
+              "maximum": 86400,
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Safe numeric HTTP 429 Retry-After hint in seconds; only allowed with category RATE_LIMIT and retryable=true. Never a raw header.",
+          "title": "Retry After Seconds"
         }
       },
       "required": [

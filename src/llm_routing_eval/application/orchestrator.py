@@ -60,6 +60,9 @@ class RunOptions(BaseModel):
     dataset_version: str = "synthetic-dev-v1"
     max_model_calls_per_case: int = Field(default=2, ge=1, le=20)
     max_retries: int = Field(default=0, ge=0, le=3)
+    # Upper bound for honoring a provider's 429 Retry-After hint. A longer hint
+    # ends retries for that stage instead of retrying earlier than requested.
+    max_retry_wait_seconds: float = Field(default=10.0, ge=0, le=60, allow_inf_nan=False)
     timeout_seconds: float = Field(default=20, gt=0, le=120, allow_inf_nan=False)
     temperature: float | None = Field(default=0, ge=0, le=2)
     max_output_tokens: int | None = Field(default=128, gt=0)
@@ -547,9 +550,13 @@ class BenchmarkOrchestrator:
                 result.error is not None and result.error.retryable and index + 1 < attempt_limit
             ):
                 return result, index + 1
-            # Bounded exponential backoff with a floor (review #12 F9); provider
-            # Retry-After support belongs in a later provider policy extension.
-            await self._sleep(retry_backoff_seconds(index, random.random()))
+            # A valid 429 Retry-After is a minimum wait, never a suggestion to
+            # retry earlier. If it exceeds this run's wait budget, stop retrying.
+            hint = result.error.retry_after_seconds if result.error is not None else None
+            if hint is not None and hint > options.max_retry_wait_seconds:
+                return result, index + 1
+            backoff = retry_backoff_seconds(index, random.random())  # floor: review #12 F9
+            await self._sleep(max(backoff, hint) if hint is not None else backoff)
         assert result is not None
         return result, attempt_limit
 
