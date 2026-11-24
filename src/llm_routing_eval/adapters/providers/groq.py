@@ -28,6 +28,7 @@ from llm_routing_eval.core import (
     TokenUsage,
 )
 
+from .authorization import DenyAllOutbound, OutboundAuthorization, is_authorized
 from .retry_after import checked_hint
 
 GROQ_CHAT_ENDPOINT = "https://api.groq.com/openai/v1/chat/completions"
@@ -158,8 +159,19 @@ class GroqProvider:
     the composition root must independently verify outbound privacy enforcement.
     """
 
-    def __init__(self, config: GroqConfig, *, transport: GroqTransportPort | None = None) -> None:
+    def __init__(
+        self,
+        config: GroqConfig,
+        *,
+        transport: GroqTransportPort | None = None,
+        outbound_authorization: OutboundAuthorization | None = None,
+    ) -> None:
         self._config = config
+        # Per-request privacy capability check; deny-all unless a reviewed
+        # authorizer is injected (privacy_approved alone is not sufficient).
+        self._outbound = (
+            outbound_authorization if outbound_authorization is not None else DenyAllOutbound()
+        )
         # Review #12 F1: no implicit default. GroqHttpTransport runs urllib in a
         # worker thread that a timeout cannot cancel; live use must inject the
         # cancellable HttpxGroqTransport (see httpx_transport.py).
@@ -206,6 +218,9 @@ class GroqProvider:
                 return failure(ErrorCategory.VALIDATION, "GROQ_INVALID_TOP_P")
             if not math.isfinite(top_p) or not 0 < top_p <= 1:
                 return failure(ErrorCategory.VALIDATION, "GROQ_INVALID_TOP_P")
+        # Asked per request, before any credential is read or byte is sent.
+        if not is_authorized(self._outbound, request):
+            return failure(ErrorCategory.PRIVACY, "GROQ_OUTBOUND_NOT_AUTHORIZED")
         key = os.environ.get("GROQ_API_KEY", "").strip()
         if not key:
             return failure(ErrorCategory.PROVIDER, "GROQ_API_KEY_MISSING")

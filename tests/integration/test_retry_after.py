@@ -41,6 +41,14 @@ from llm_routing_eval.demo.fakes import (
     InMemoryDemoRepository,
 )
 
+
+class AllowAllForTests:
+    """Test-only OutboundAuthorization. Never use outside offline tests."""
+
+    def authorize(self, request: object) -> bool:
+        return True
+
+
 LARGE = "openai/gpt-oss-120b"
 SECRET = "IN_MEMORY_FAKE_CREDENTIAL"
 
@@ -142,6 +150,7 @@ def test_providers_propagate_only_safe_hints(
                         allowed_models=frozenset({LARGE}), live_enabled=True, privacy_approved=True
                     ),
                     transport=HttpxGroqTransport(client),
+                    outbound_authorization=AllowAllForTests(),
                 )
             else:
                 provider = NvidiaBuildProvider(
@@ -149,6 +158,7 @@ def test_providers_propagate_only_safe_hints(
                         allowed_models=frozenset({LARGE}), live_enabled=True, privacy_approved=True
                     ),
                     transport=HttpxNvidiaTransport(client),
+                    outbound_authorization=AllowAllForTests(),
                 )
             return await provider.generate(_request(provider_id))
 
@@ -172,6 +182,7 @@ def test_provider_drops_unsafe_hint_from_injected_transport(
     provider = GroqProvider(
         GroqConfig(allowed_models=frozenset({LARGE}), live_enabled=True, privacy_approved=True),
         transport=BadHintTransport(),
+        outbound_authorization=AllowAllForTests(),
     )
     response = asyncio.run(provider.generate(_request("groq")))
     assert response.error is not None and response.error.retry_after_seconds is None

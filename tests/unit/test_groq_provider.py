@@ -26,6 +26,14 @@ from llm_routing_eval.core import (
     ModelRequest,
 )
 
+
+class AllowAllForTests:
+    """Test-only OutboundAuthorization. Never use outside offline tests."""
+
+    def authorize(self, request: object) -> bool:
+        return True
+
+
 MODEL = "openai/gpt-oss-120b"
 
 
@@ -94,6 +102,7 @@ def _provider(
             privacy_approved=privacy_approved,
         ),
         transport=transport,
+        outbound_authorization=AllowAllForTests(),
     )
 
 

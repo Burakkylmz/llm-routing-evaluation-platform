@@ -31,6 +31,7 @@ from llm_routing_eval.core import (
     TokenUsage,
 )
 
+from .authorization import DenyAllOutbound, OutboundAuthorization, is_authorized
 from .retry_after import checked_hint
 
 NVIDIA_CHAT_ENDPOINT = "https://integrate.api.nvidia.com/v1/chat/completions"
@@ -167,8 +168,14 @@ class NvidiaBuildProvider:
         config: NvidiaBuildConfig,
         *,
         transport: NvidiaTransportPort | None = None,
+        outbound_authorization: OutboundAuthorization | None = None,
     ) -> None:
         self._config = config
+        # Per-request privacy capability check; deny-all unless a reviewed
+        # authorizer is injected (privacy_approved alone is not sufficient).
+        self._outbound = (
+            outbound_authorization if outbound_authorization is not None else DenyAllOutbound()
+        )
         # Review #12 F1: no implicit thread-based default (see GroqProvider).
         self._transport = transport
 
@@ -210,6 +217,9 @@ class NvidiaBuildProvider:
         ):
             return failed(ErrorCategory.VALIDATION, "NVIDIA_INVALID_TOP_P")
 
+        # Asked per request, before any credential is read or byte is sent.
+        if not is_authorized(self._outbound, request):
+            return failed(ErrorCategory.PRIVACY, "NVIDIA_OUTBOUND_NOT_AUTHORIZED")
         key = os.environ.get("NVIDIA_API_KEY", "").strip()
         if not key:
             return failed(ErrorCategory.PROVIDER, "NVIDIA_API_KEY_MISSING")

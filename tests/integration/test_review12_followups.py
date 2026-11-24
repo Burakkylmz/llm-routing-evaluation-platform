@@ -49,6 +49,14 @@ from llm_routing_eval.demo.fakes import (
 )
 from llm_routing_eval.routing import CascadeRouter, ModelPair
 
+
+class AllowAllForTests:
+    """Test-only OutboundAuthorization. Never use outside offline tests."""
+
+    def authorize(self, request: object) -> bool:
+        return True
+
+
 SMALL = "openai/gpt-oss-20b"
 LARGE = "openai/gpt-oss-120b"
 SECRET = "IN_MEMORY_FAKE_CREDENTIAL"
@@ -99,12 +107,14 @@ def test_f1_providers_have_no_implicit_thread_transport(monkeypatch: pytest.Monk
     monkeypatch.setenv("GROQ_API_KEY", SECRET)
     monkeypatch.setenv("NVIDIA_API_KEY", SECRET)
     groq = GroqProvider(
-        GroqConfig(allowed_models=frozenset({LARGE}), live_enabled=True, privacy_approved=True)
+        GroqConfig(allowed_models=frozenset({LARGE}), live_enabled=True, privacy_approved=True),
+        outbound_authorization=AllowAllForTests(),
     )
     nvidia = NvidiaBuildProvider(
         NvidiaBuildConfig(
             allowed_models=frozenset({LARGE}), live_enabled=True, privacy_approved=True
-        )
+        ),
+        outbound_authorization=AllowAllForTests(),
     )
     for provider, provider_id, code in (
         (groq, "groq", "GROQ_TRANSPORT_NOT_CONFIGURED"),
@@ -143,6 +153,7 @@ def test_f1_timeout_leaves_no_call_in_flight_and_retries_never_overlap(
                     allowed_models=frozenset({LARGE}), live_enabled=True, privacy_approved=True
                 ),
                 transport=HttpxGroqTransport(client),
+                outbound_authorization=AllowAllForTests(),
             )
             result = await engine(DemoAlwaysLargeRouter(LARGE), provider).run(
                 [demo_case()],
@@ -199,6 +210,7 @@ def test_f1_httpx_transports_keep_stdlib_safety_properties(
                         allowed_models=frozenset({LARGE}), live_enabled=True, privacy_approved=True
                     ),
                     transport=HttpxGroqTransport(client),
+                    outbound_authorization=AllowAllForTests(),
                 )
             else:
                 provider = NvidiaBuildProvider(
@@ -206,6 +218,7 @@ def test_f1_httpx_transports_keep_stdlib_safety_properties(
                         allowed_models=frozenset({LARGE}), live_enabled=True, privacy_approved=True
                     ),
                     transport=HttpxNvidiaTransport(client),
+                    outbound_authorization=AllowAllForTests(),
                 )
             return [await provider.generate(request(provider_id)) for _ in range(3)]
 
@@ -239,6 +252,7 @@ def test_f1_httpx_timeout_and_connect_errors_are_sanitized(monkeypatch: pytest.M
                     allowed_models=frozenset({LARGE}), live_enabled=True, privacy_approved=True
                 ),
                 transport=HttpxGroqTransport(client),
+                outbound_authorization=AllowAllForTests(),
             )
             return await provider.generate(request("groq"))
 
@@ -454,6 +468,7 @@ def test_f1_compressed_response_is_rejected_before_decompression(
                         allowed_models=frozenset({LARGE}), live_enabled=True, privacy_approved=True
                     ),
                     transport=HttpxGroqTransport(client),
+                    outbound_authorization=AllowAllForTests(),
                 )
             else:
                 provider = NvidiaBuildProvider(
@@ -461,6 +476,7 @@ def test_f1_compressed_response_is_rejected_before_decompression(
                         allowed_models=frozenset({LARGE}), live_enabled=True, privacy_approved=True
                     ),
                     transport=HttpxNvidiaTransport(client),
+                    outbound_authorization=AllowAllForTests(),
                 )
             return await provider.generate(request(provider_id))
 
@@ -490,6 +506,7 @@ def test_f1_uncompressed_response_still_accepted(
                     allowed_models=frozenset({LARGE}), live_enabled=True, privacy_approved=True
                 ),
                 transport=HttpxGroqTransport(client),
+                outbound_authorization=AllowAllForTests(),
             )
             return await provider.generate(request("groq"))
 
