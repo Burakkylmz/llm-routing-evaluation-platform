@@ -547,9 +547,9 @@ class BenchmarkOrchestrator:
                 result.error is not None and result.error.retryable and index + 1 < attempt_limit
             ):
                 return result, index + 1
-            # Bounded exponential backoff + jitter; provider Retry-After support belongs
-            # in a later provider policy extension, not the fake provider.
-            await self._sleep(min(2.0, (2**index) * random.random()))
+            # Bounded exponential backoff with a floor (review #12 F9); provider
+            # Retry-After support belongs in a later provider policy extension.
+            await self._sleep(retry_backoff_seconds(index, random.random()))
         assert result is not None
         return result, attempt_limit
 
@@ -567,6 +567,28 @@ def is_degraded_trace(trace: ExecutionTrace) -> bool:
         and step.error.code == ESCALATION_FAILED_RETAINED_LOWER_TIER
         for step in trace.steps
     )
+
+
+RETRY_BACKOFF_BASE_SECONDS = 0.5
+RETRY_BACKOFF_MAX_SECONDS = 2.0
+
+
+def retry_backoff_seconds(retry_index: int, jitter: float) -> float:
+    """Exponential backoff with "equal jitter" and a non-zero floor (review #12 F9).
+
+    The ceiling doubles per retry (0.5 s, 1 s, 2 s, then capped at 2 s). The
+    delay is drawn from [ceiling / 2, ceiling], so a retry never fires almost
+    immediately, as ``ceiling * random()`` could, while concurrent runs still
+    spread out. ``jitter`` is a value in [0, 1], e.g. ``random.random()``.
+    """
+    if isinstance(retry_index, bool) or retry_index < 0:
+        raise ValueError("RETRY_INDEX_INVALID")
+    if not 0.0 <= jitter <= 1.0:
+        raise ValueError("RETRY_JITTER_OUT_OF_RANGE")
+    ceiling = min(
+        RETRY_BACKOFF_MAX_SECONDS, RETRY_BACKOFF_BASE_SECONDS * 2.0 ** min(retry_index, 8)
+    )
+    return ceiling / 2 + (ceiling / 2) * jitter
 
 
 _SAFE_CODE_PATTERN = re.compile(r"^[A-Za-z0-9_./-]{1,80}$")
