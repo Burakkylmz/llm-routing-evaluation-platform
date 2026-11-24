@@ -37,6 +37,9 @@ def no_network(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(socket, "create_connection", refuse)
     monkeypatch.setattr(socket, "getaddrinfo", refuse)
     monkeypatch.delenv("GROQ_API_KEY", raising=False)
+    # CI exports BENCHMARK_MODE=offline, which read_settings applies over the file.
+    # Tests control execution mode through their own config files instead.
+    monkeypatch.delenv("BENCHMARK_MODE", raising=False)
 
 
 def _invoke(*args: str) -> Any:
@@ -160,3 +163,25 @@ def test_invalid_configuration_exits_3(
 def test_missing_files_exit_3(tmp_path: Path) -> None:
     result = _invoke("--providers", str(tmp_path / "missing.yaml"))
     assert result.exit_code == 3 and "PROVIDER_CONFIG_INVALID" in result.output
+
+
+def test_benchmark_mode_offline_environment_keeps_execution_not_live(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """CI's BENCHMARK_MODE=offline overrides a live config file: still not live."""
+    monkeypatch.setenv("BENCHMARK_MODE", "offline")
+    monkeypatch.setenv("GROQ_API_KEY", SECRET)
+    settings, providers, pricing = _ready_looking_configs(tmp_path)
+    result = _invoke(
+        "--config",
+        str(settings),
+        "--providers",
+        str(providers),
+        "--pricing",
+        str(pricing),
+        "--json",
+    )
+    report = json.loads(result.output)
+    checks = {c["name"]: c["passed"] for c in report["checks"]}
+    assert checks["execution_live_enabled"] is False
+    assert "EXECUTION_NOT_LIVE" in report["blockers"]
