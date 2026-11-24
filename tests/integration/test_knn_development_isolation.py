@@ -123,7 +123,9 @@ def test_f4_cli_rejects_leak_before_output(
     if configured_strategy:
         config["benchmark"]["strategy"] = "knn"
     config["routing"]["knn"]["examples"][0]["input_text"] = (
-        source.replace("fark", "farkı") if near_copy else source.upper().replace(" ", "   ")
+        source.replace("fark", "farkı")
+        if near_copy
+        else source.replace("i", "İ").replace("ı", "I").upper().replace(" ", "   ")
     )
     file_path = tmp_path / "config.yaml"
     file_path.write_text(yaml.safe_dump(config, allow_unicode=True), encoding="utf-8")
