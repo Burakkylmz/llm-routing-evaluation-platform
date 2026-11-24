@@ -14,6 +14,9 @@ from .strategies import (
     ModelPair,
     RuleBasedRouter,
     ScenarioRule,
+    knn_vote,
+    rank_neighbours,
+    vote_ranked,
 )
 
 __all__ = [
@@ -28,4 +31,7 @@ __all__ = [
     "ModelPair",
     "RuleBasedRouter",
     "ScenarioRule",
+    "knn_vote",
+    "rank_neighbours",
+    "vote_ranked",
 ]

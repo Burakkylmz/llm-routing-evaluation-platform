@@ -183,6 +183,51 @@ def _cosine(left: tuple[float, ...], right: tuple[float, ...]) -> float:
     return numerator / (norm_l * norm_r)
 
 
+Neighbour = tuple[float, str, ModelTier]
+
+
+def rank_neighbours(
+    query: tuple[float, ...],
+    references: Sequence[tuple[tuple[float, ...], str, ModelTier]],
+) -> list[Neighbour]:
+    """Most similar first; stable tie-break by example ID."""
+    return sorted(
+        ((_cosine(query, vector), example_id, tier) for vector, example_id, tier in references),
+        key=lambda item: (-item[0], item[1]),
+    )
+
+
+def vote_ranked(
+    ranked: Sequence[Neighbour], *, k: int, minimum_similarity: float
+) -> tuple[ModelTier, str]:
+    """Decide from an already ranked neighbour list (see ``rank_neighbours``).
+
+    Low-similarity neighbourhoods and tied weighted votes conservatively select
+    the large model.
+    """
+    candidates = ranked[:k]
+    if not candidates or candidates[0][0] < minimum_similarity:
+        return "large", "KNN_LOW_SIMILARITY"
+    small_vote = sum(max(0.0, score) for score, _, t in candidates if t == "small")
+    large_vote = sum(max(0.0, score) for score, _, t in candidates if t == "large")
+    if small_vote > large_vote:
+        return "small", "KNN_SMALL"
+    return "large", "KNN_LARGE"
+
+
+def knn_vote(
+    query: tuple[float, ...],
+    references: Sequence[tuple[tuple[float, ...], str, ModelTier]],
+    *,
+    k: int,
+    minimum_similarity: float,
+) -> tuple[ModelTier, str]:
+    """Pure kNN decision shared by ``KnnRouter`` and development-only calibration."""
+    return vote_ranked(
+        rank_neighbours(query, references), k=k, minimum_similarity=minimum_similarity
+    )
+
+
 class KnnRouter:
     """Prepared kNN classifier; stable tie breaks and conservative large fallback."""
 
@@ -252,21 +297,15 @@ class KnnRouter:
             raise ValueError("Embedding adapter returned incorrect query count")
         vector = query_vectors[0]
         _check_vector(vector, len(self._vectors[0]))
-        candidates = sorted(
-            (
-                (_cosine(vector, reference), ex.example_id, ex.tier)
+        tier, reason = knn_vote(
+            vector,
+            tuple(
+                (reference, ex.example_id, ex.tier)
                 for reference, ex in zip(self._vectors, self._examples, strict=True)
             ),
-            key=lambda item: (-item[0], item[1]),
-        )[: self._k]
-        if candidates[0][0] < self._minimum_similarity:
-            tier: ModelTier = "large"
-            reason = "KNN_LOW_SIMILARITY"
-        else:
-            small_vote = sum(max(0.0, score) for score, _, t in candidates if t == "small")
-            large_vote = sum(max(0.0, score) for score, _, t in candidates if t == "large")
-            tier = "small" if small_vote > large_vote else "large"
-            reason = "KNN_SMALL" if tier == "small" else "KNN_LARGE"
+            k=self._k,
+            minimum_similarity=self._minimum_similarity,
+        )
         return _decision(
             StrategyId.KNN,
             context,

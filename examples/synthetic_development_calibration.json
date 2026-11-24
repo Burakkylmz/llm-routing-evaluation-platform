@@ -1,0 +1,127 @@
+{
+  "schema_version": "1.0.0",
+  "dataset_version": "synthetic-dev-calibration-0.1",
+  "split": "development",
+  "examples": [
+    {
+      "example_id": "synthetic-cal-01",
+      "input_text": "Vadesiz hesap açmak için hangi belgeler gerekir?",
+      "scenario_type": "account_general",
+      "tier": "small",
+      "split": "development",
+      "synthetic": true
+    },
+    {
+      "example_id": "synthetic-cal-02",
+      "input_text": "Hesap açma işlemi şubede ne kadar sürer?",
+      "scenario_type": "account_general",
+      "tier": "small",
+      "split": "development",
+      "synthetic": true
+    },
+    {
+      "example_id": "synthetic-cal-03",
+      "input_text": "Mobil uygulamadan yeni hesap açmak mümkün mü?",
+      "scenario_type": "account_general",
+      "tier": "small",
+      "split": "development",
+      "synthetic": true
+    },
+    {
+      "example_id": "synthetic-cal-04",
+      "input_text": "Hesap özeti hangi sıklıkla gönderilir?",
+      "scenario_type": "account_general",
+      "tier": "small",
+      "split": "development",
+      "synthetic": true
+    },
+    {
+      "example_id": "synthetic-cal-05",
+      "input_text": "Kredi kartı limiti nasıl belirlenir?",
+      "scenario_type": "card_general",
+      "tier": "small",
+      "split": "development",
+      "synthetic": true
+    },
+    {
+      "example_id": "synthetic-cal-06",
+      "input_text": "Kart aidatı neden alınır?",
+      "scenario_type": "card_general",
+      "tier": "small",
+      "split": "development",
+      "synthetic": true
+    },
+    {
+      "example_id": "synthetic-cal-07",
+      "input_text": "Temassız ödeme limiti nedir?",
+      "scenario_type": "card_general",
+      "tier": "small",
+      "split": "development",
+      "synthetic": true
+    },
+    {
+      "example_id": "synthetic-cal-08",
+      "input_text": "Kredi kartı borcu taksitlendirilirse faiz nasıl hesaplanır?",
+      "scenario_type": "card_general",
+      "tier": "large",
+      "split": "development",
+      "synthetic": true
+    },
+    {
+      "example_id": "synthetic-cal-09",
+      "input_text": "Konut kredisinde erken kapama tazminatı ve faiz hesabı nasıl yapılır?",
+      "scenario_type": "loan_complex",
+      "tier": "large",
+      "split": "development",
+      "synthetic": true
+    },
+    {
+      "example_id": "synthetic-cal-10",
+      "input_text": "Değişken faizli kredide faiz artışı ödeme planını nasıl etkiler?",
+      "scenario_type": "loan_complex",
+      "tier": "large",
+      "split": "development",
+      "synthetic": true
+    },
+    {
+      "example_id": "synthetic-cal-11",
+      "input_text": "Kredi yapılandırmasında toplam maliyet ve faiz nasıl karşılaştırılır?",
+      "scenario_type": "loan_complex",
+      "tier": "large",
+      "split": "development",
+      "synthetic": true
+    },
+    {
+      "example_id": "synthetic-cal-12",
+      "input_text": "Kredi faiz oranı ile yıllık maliyet oranı arasındaki fark nedir?",
+      "scenario_type": "loan_complex",
+      "tier": "large",
+      "split": "development",
+      "synthetic": true
+    },
+    {
+      "example_id": "synthetic-cal-13",
+      "input_text": "Kartımdan tanımadığım bir harcama çekildi, itiraz süreci nasıl işler?",
+      "scenario_type": "dispute",
+      "tier": "large",
+      "split": "development",
+      "synthetic": true
+    },
+    {
+      "example_id": "synthetic-cal-14",
+      "input_text": "Harcama itirazı reddedilirse hangi haklarım vardır?",
+      "scenario_type": "dispute",
+      "tier": "large",
+      "split": "development",
+      "synthetic": true
+    },
+    {
+      "example_id": "synthetic-cal-15",
+      "input_text": "Yurt dışı harcama itirazında süre ve belge koşulları nelerdir?",
+      "scenario_type": "dispute",
+      "tier": "large",
+      "split": "development",
+      "synthetic": true
+    }
+  ]
+}
