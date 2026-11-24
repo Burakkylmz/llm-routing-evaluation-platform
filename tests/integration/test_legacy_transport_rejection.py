@@ -44,9 +44,7 @@ def _response_body() -> bytes:
     return json.dumps(
         {
             "id": "safe-offline-id",
-            "choices": [
-                {"message": {"content": "Synthetic output"}, "finish_reason": "stop"}
-            ],
+            "choices": [{"message": {"content": "Synthetic output"}, "finish_reason": "stop"}],
             "usage": {"prompt_tokens": 3, "completion_tokens": 2},
         }
     ).encode("utf-8")
