@@ -116,7 +116,6 @@ def test_cli_rejects_calibration_data_overlapping_evaluation_cases(tmp_path: Pat
     assert not config_out.exists() and not report.exists()
 
 
-
 @pytest.mark.parametrize("overlap_type", ["normalized_text", "case_id"])
 def test_infeasible_leaking_calibration_never_writes_report(
     tmp_path: Path, overlap_type: str
