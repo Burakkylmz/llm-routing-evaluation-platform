@@ -57,3 +57,22 @@ strategies across versions; existing results must not be silently relabeled.
 The adapter remains **lexical rather than semantic** and is intended only for
 synthetic, offline Turkish banking evaluation. Member 03 must still approve
 held-out split provenance and evaluation methodology before any live benchmark.
+
+## Opt-in live provider smoke tests (`pytest -m live`)
+
+`tests/live/` holds one smoke test each for Groq and NVIDIA Build. Each test sends a **single fixed synthetic prompt** ("Reply with the single word: OK") through the production path: provider, cancellable HTTPX transport, and an `OutboundAuthorization` that permits only that prompt. The tests are **skipped by default**. They also refuse to run in CI (when `CI` is set or `BENCHMARK_MODE=offline`), even with the opt-in flag present. `tests/unit/test_live_test_gating.py` guards this behaviour offline.
+
+Run them only after the account owner has confirmed model access and the privacy owner (Member 04) has approved a synthetic-only pilot:
+
+```bash
+LLM_ROUTING_LIVE_TESTS=1 GROQ_API_KEY=... uv run pytest -m live tests/live -q
+```
+
+| Variable | Purpose |
+| --- | --- |
+| `LLM_ROUTING_LIVE_TESTS=1` | Required opt-in |
+| `GROQ_API_KEY`, `GROQ_LIVE_TEST_MODEL` | Groq key; model defaults to `openai/gpt-oss-20b` |
+| `NVIDIA_API_KEY`, `NVIDIA_LIVE_TEST_MODEL` | NVIDIA key and model (no default: availability is unverified) |
+| `LIVE_TEST_MAX_OUTPUT_TOKENS` | Optional completion budget (default 256) |
+
+A pass proves wire compatibility and account/model access only. It is not evidence of quality, latency SLOs or cost. Record the date, model ID and result in the handoff sign-off.
