@@ -146,10 +146,29 @@ def routing_policy_digest(settings: OfflineSettings, strategy: StrategyId) -> st
     if strategy is StrategyId.ALWAYS_LARGE:
         selected_policy: dict[str, object] = {"baseline": "large-only-v1"}
     elif strategy is StrategyId.RULE_BASED:
-        selected_policy = settings.routing.rule_based.model_dump(mode="json")
+        # Rule priority is defined by rule-list order, but order (or duplicate
+        # entries) within each rule's scenario set does not affect matching.
+        rule_policy = settings.routing.rule_based.model_dump(mode="json")
+        rule_policy["rules"] = [
+            {
+                **rule.model_dump(mode="json"),
+                "scenario_types": sorted(set(rule.scenario_types)),
+            }
+            for rule in settings.routing.rule_based.rules
+        ]
+        selected_policy = rule_policy
     elif strategy is StrategyId.KNN:
+        # kNN sorts neighbours by score and stable example ID. List ordering
+        # is not meaningful, but example IDs, labels and text remain material.
+        knn_policy = settings.routing.knn.model_dump(mode="json")
+        knn_policy["examples"] = [
+            example.model_dump(mode="json")
+            for example in sorted(
+                settings.routing.knn.examples, key=lambda example: example.example_id
+            )
+        ]
         selected_policy = {
-            "knn": settings.routing.knn.model_dump(mode="json"),
+            "knn": knn_policy,
             "embedding_implementation": HASHING_EMBEDDING_VERSION,
         }
     elif strategy is StrategyId.CASCADE:

@@ -76,3 +76,21 @@ LLM_ROUTING_LIVE_TESTS=1 GROQ_API_KEY=... uv run pytest -m live tests/live -q
 | `LIVE_TEST_MAX_OUTPUT_TOKENS` | Optional completion budget (default 256) |
 
 A pass proves wire compatibility and account/model access only. It is not evidence of quality, latency SLOs or cost. Record the date, model ID and result in the handoff sign-off.
+
+## F7 — Stable routing fingerprints for behavior-equivalent YAML order (Issue #27)
+
+The offline policy digest now canonicalizes the **set** of scenario types
+inside each Rule-Based rule and sorts kNN development examples by their
+unique example IDs. Neither operation changes the router's in-memory input,
+configured first-match rule priority, kNN neighbor ordering, or selected model.
+The order of Rule-Based **rules** remains significant and is never sorted;
+kNN example ID, text and assigned model tier remain part of the digest
+because they can affect selection and tie breaking. Thresholds, embedding
+version and model IDs remain material to policy provenance.
+
+This reduces spurious new fingerprints for behavior-equivalent YAML edits; it
+is not a proof that arbitrary routing policies are semantically equivalent.
+Historic fingerprint values remain immutable in stored reports. In particular,
+previously computed fingerprints must not be rewritten or reassigned to old
+results. A SHA-256 run fingerprint is **not a privacy/redaction guarantee**:
+privacy approval and held-out data isolation are independent gates.
