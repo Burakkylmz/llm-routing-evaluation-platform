@@ -57,3 +57,30 @@ strategies across versions; existing results must not be silently relabeled.
 The adapter remains **lexical rather than semantic** and is intended only for
 synthetic, offline Turkish banking evaluation. Member 03 must still approve
 held-out split provenance and evaluation methodology before any live benchmark.
+
+
+## F9 — Positive retry backoff and versioned provenance (Issue #29)
+
+The application orchestrator previously used full jitter
+\`min(2, 2**index * random.random())\`, allowing a zero or near-zero
+retry delay. The proposed F9 policy uses bounded exponential equal jitter:
+\`ceiling = min(2.0, 0.25 * 2**index)\` seconds and
+\`delay = ceiling * (0.5 + 0.5 * random.random())\`.
+The first retry therefore waits at least 125 ms; subsequent retry
+ceilings grow exponentially up to two seconds. Randomization remains
+unseeded in production, but offline tests inject deterministic values and
+a fake sleep callback.
+
+No sleep occurs after a success, non-retryable failure or final allowed
+attempt. The maximum retries and global model-call budget remain unchanged.
+The policy version \`bounded-equal-jitter-v1\` is recorded in report provenance
+and included in \`RunOptions.fingerprint()\` **only when retries are enabled**;
+zero-retry fingerprints retain their previous byte-for-byte representation.
+Historical fingerprints must never be rewritten or reinterpreted.
+
+The fix intentionally does not parse or honor provider Retry-After responses.
+That requires separate provider and Member 01-approved policy contracts.
+Because retry orchestration belongs to the application/Core integration,
+Member 01 must review this change before merge. No offline-only CI result
+authorizes live Groq/NVIDIA calls or replaces Member 03/04 privacy and
+benchmark sign-offs.
