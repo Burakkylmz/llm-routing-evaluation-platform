@@ -58,6 +58,67 @@ The adapter remains **lexical rather than semantic** and is intended only for
 synthetic, offline Turkish banking evaluation. Member 03 must still approve
 held-out split provenance and evaluation methodology before any live benchmark.
 
+## Opt-in live provider smoke tests (`pytest -m live`)
+
+`tests/live/` holds one smoke test each for Groq and NVIDIA Build. Each test sends a **single fixed synthetic prompt** ("Reply with the single word: OK") through the production path: provider, cancellable HTTPX transport, and an `OutboundAuthorization` that permits only that prompt. The tests are **skipped by default**. They also refuse to run in CI (when `CI` is set or `BENCHMARK_MODE=offline`), even with the opt-in flag present. `tests/unit/test_live_test_gating.py` guards this behaviour offline.
+
+Run them only after the account owner has confirmed model access and the privacy owner (Member 04) has approved a synthetic-only pilot:
+
+```bash
+LLM_ROUTING_LIVE_TESTS=1 GROQ_API_KEY=... uv run pytest -m live tests/live -q
+```
+
+| Variable | Purpose |
+| --- | --- |
+| `LLM_ROUTING_LIVE_TESTS=1` | Required opt-in |
+| `GROQ_API_KEY`, `GROQ_LIVE_TEST_MODEL` | Groq key; model defaults to `openai/gpt-oss-20b` |
+| `NVIDIA_API_KEY`, `NVIDIA_LIVE_TEST_MODEL` | NVIDIA key and model (no default: availability is unverified) |
+| `LIVE_TEST_MAX_OUTPUT_TOKENS` | Optional completion budget (default 256) |
+
+A pass proves wire compatibility and account/model access only. It is not evidence of quality, latency SLOs or cost. Record the date, model ID and result in the handoff sign-off.
+
+## F7 — Stable routing fingerprints for behavior-equivalent YAML order (Issue #27)
+
+The offline policy digest now canonicalizes the **set** of scenario types
+inside each Rule-Based rule and sorts kNN development examples by their
+unique example IDs. Neither operation changes the router's in-memory input,
+configured first-match rule priority, kNN neighbor ordering, or selected model.
+The order of Rule-Based **rules** remains significant and is never sorted;
+kNN example ID, text and assigned model tier remain part of the digest
+because they can affect selection and tie breaking. Thresholds, embedding
+version and model IDs remain material to policy provenance.
+
+This reduces spurious new fingerprints for behavior-equivalent YAML edits; it
+is not a proof that arbitrary routing policies are semantically equivalent.
+Historic fingerprint values remain immutable in stored reports. In particular,
+previously computed fingerprints must not be rewritten or reassigned to old
+results. A SHA-256 run fingerprint is **not a privacy/redaction guarantee**:
+privacy approval and held-out data isolation are independent gates.
+
+## F9 — Retry backoff provenance on current main (Issue #29)
+
+PR #34 already introduced positive bounded **equal jitter** retry delays:
+`ceiling = min(2.0, 0.5 * 2**index)` seconds; wait is
+`ceiling / 2 + (ceiling / 2) * random.random()`. The first retry
+therefore waits at least **250 ms**, with a **2 s** maximum.
+
+PR #35 added HTTP 429 `Retry-After` handling. A valid hint is treated as a
+minimum wait; if it exceeds the configured `max_retry_wait_seconds`, retries
+stop rather than firing earlier than requested. This PR **preserves** both
+merged behaviors instead of reintroducing an older, incompatible backoff
+function. The application still enforces the configured retry and model-call
+budgets, cancellation and fail-closed safeguards.
+
+For reporting reproducibility, the existing policy is labeled
+`equal-jitter-0p5s-429-v1` in benchmark report provenance and the run
+fingerprint **only when retry attempts are enabled**. Runs with
+`max_retries=0` retain the current main branch's fingerprint formula.
+Historical results and hashes are immutable; never relabel prior runs.
+
+The attached synthetic offline tests validate backoff bounds, retry sequencing,
+no extra calls after terminal outcomes, cancellation propagation and
+fingerprint differences. They do not authorize live Groq/NVIDIA benchmarks or
+replace Member 01, Member 03 and Member 04 approvals.
 
 ## F5 — Extensible Cascade escalation policy (Issue #31)
 
@@ -80,7 +141,7 @@ the configured built-in policy. No arbitrary policy plugin is loaded from YAML.
 **Scope of this F5 deliverable:** the strategy implementation is now open
 for controlled local escalation-policy extension. The application
 orchestrator still explicitly distinguishes Cascade from one-stage baselines
-for retries and multi-stage accounting. That is **Member 01's responsibility**
+for retries and multi-stage accounting. That is **Member 01's responsibility** (tracked in Issue #33)
 and cannot safely be removed without a separately agreed Core/RouterPort
 capability contract, call-budget semantics, fingerprinting and integration
 tests. This refactoring does not claim to resolve that cross-team OCP concern,

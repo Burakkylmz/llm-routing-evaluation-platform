@@ -28,6 +28,9 @@ from llm_routing_eval.core import (
     TokenUsage,
 )
 
+from .authorization import DenyAllOutbound, OutboundAuthorization, is_authorized
+from .retry_after import checked_hint
+
 GROQ_CHAT_ENDPOINT = "https://api.groq.com/openai/v1/chat/completions"
 _MAX_BODY_BYTES = 2_000_000
 _MODEL_ID = re.compile(r"^[a-zA-Z0-9][a-zA-Z0-9_./-]{0,127}$")
@@ -54,6 +57,8 @@ class GroqConfig:
 class GroqHttpResult:
     status_code: int
     body: bytes
+    # Parsed numeric Retry-After seconds for HTTP 429 only; never the raw header.
+    retry_after_seconds: float | None = None
 
 
 class GroqTransportTimeout(Exception):
@@ -154,8 +159,19 @@ class GroqProvider:
     the composition root must independently verify outbound privacy enforcement.
     """
 
-    def __init__(self, config: GroqConfig, *, transport: GroqTransportPort | None = None) -> None:
+    def __init__(
+        self,
+        config: GroqConfig,
+        *,
+        transport: GroqTransportPort | None = None,
+        outbound_authorization: OutboundAuthorization | None = None,
+    ) -> None:
         self._config = config
+        # Per-request privacy capability check; deny-all unless a reviewed
+        # authorizer is injected (privacy_approved alone is not sufficient).
+        self._outbound = (
+            outbound_authorization if outbound_authorization is not None else DenyAllOutbound()
+        )
         # Review #12 F1: no implicit default. GroqHttpTransport runs urllib in a
         # worker thread that a timeout cannot cancel; live use must inject the
         # cancellable HttpxGroqTransport (see httpx_transport.py).
@@ -173,6 +189,7 @@ class GroqProvider:
             status: CallStatus = CallStatus.FAILED,
             *,
             retryable: bool = False,
+            retry_after_seconds: float | None = None,
         ) -> ModelResponse:
             return ModelResponse(
                 provider="groq",
@@ -181,7 +198,12 @@ class GroqProvider:
                 status=status,
                 metric_origin=MetricOrigin.OBSERVED,
                 latency_ms=(perf_counter() - start) * 1000,
-                error=ErrorInfo(category=category, code=code, retryable=retryable),
+                error=ErrorInfo(
+                    category=category,
+                    code=code,
+                    retryable=retryable,
+                    retry_after_seconds=retry_after_seconds,
+                ),
             )
 
         if not self._config.live_enabled or not self._config.privacy_approved:
@@ -196,6 +218,9 @@ class GroqProvider:
                 return failure(ErrorCategory.VALIDATION, "GROQ_INVALID_TOP_P")
             if not math.isfinite(top_p) or not 0 < top_p <= 1:
                 return failure(ErrorCategory.VALIDATION, "GROQ_INVALID_TOP_P")
+        # Asked per request, before any credential is read or byte is sent.
+        if not is_authorized(self._outbound, request):
+            return failure(ErrorCategory.PRIVACY, "GROQ_OUTBOUND_NOT_AUTHORIZED")
         key = os.environ.get("GROQ_API_KEY", "").strip()
         if not key:
             return failure(ErrorCategory.PROVIDER, "GROQ_API_KEY_MISSING")
@@ -239,6 +264,7 @@ class GroqProvider:
                     "GROQ_RATE_LIMITED",
                     CallStatus.RATE_LIMITED,
                     retryable=True,
+                    retry_after_seconds=checked_hint(response.retry_after_seconds),
                 )
             if status in (408, 504):
                 return failure(

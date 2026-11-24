@@ -49,6 +49,9 @@ from llm_routing_eval.core import (
     TraceStepKind,
 )
 
+# Provenance ID for the existing equal-jitter policy with bounded 429 Retry-After.
+RETRY_BACKOFF_POLICY_VERSION = "equal-jitter-0p5s-429-v1"
+
 
 class RunOptions(BaseModel):
     """Validated, secret-free configuration for a single sequential benchmark."""
@@ -60,6 +63,9 @@ class RunOptions(BaseModel):
     dataset_version: str = "synthetic-dev-v1"
     max_model_calls_per_case: int = Field(default=2, ge=1, le=20)
     max_retries: int = Field(default=0, ge=0, le=3)
+    # Upper bound for honoring a provider's 429 Retry-After hint. A longer hint
+    # ends retries for that stage instead of retrying earlier than requested.
+    max_retry_wait_seconds: float = Field(default=10.0, ge=0, le=60, allow_inf_nan=False)
     timeout_seconds: float = Field(default=20, gt=0, le=120, allow_inf_nan=False)
     temperature: float | None = Field(default=0, ge=0, le=2)
     max_output_tokens: int | None = Field(default=128, gt=0)
@@ -89,6 +95,9 @@ class RunOptions(BaseModel):
 
     def fingerprint(self) -> str:
         payload = self.model_dump(mode="json")
+        if self.max_retries > 0:
+            # Retry policy affects observed latency and needs versioned provenance.
+            payload["retry_backoff_policy_version"] = RETRY_BACKOFF_POLICY_VERSION
         return (
             "sha256:"
             + hashlib.sha256(
@@ -182,6 +191,9 @@ class BenchmarkOrchestrator:
                 "execution_mode": "offline_demo" if options.provider == "fake" else "configured",
                 "prompt_version": options.prompt_version,
                 "privacy_boundary": "pre-routing and pre-provider",
+                "retry_backoff_policy": (
+                    RETRY_BACKOFF_POLICY_VERSION if options.max_retries else "no_retries"
+                ),
                 "dataset_identifiers_sha256": hashlib.sha256(
                     json.dumps(
                         [case.case_id for case in cases],
@@ -547,9 +559,13 @@ class BenchmarkOrchestrator:
                 result.error is not None and result.error.retryable and index + 1 < attempt_limit
             ):
                 return result, index + 1
-            # Bounded exponential backoff + jitter; provider Retry-After support belongs
-            # in a later provider policy extension, not the fake provider.
-            await self._sleep(min(2.0, (2**index) * random.random()))
+            # A valid 429 Retry-After is a minimum wait, never a suggestion to
+            # retry earlier. If it exceeds this run's wait budget, stop retrying.
+            hint = result.error.retry_after_seconds if result.error is not None else None
+            if hint is not None and hint > options.max_retry_wait_seconds:
+                return result, index + 1
+            backoff = retry_backoff_seconds(index, random.random())  # floor: review #12 F9
+            await self._sleep(max(backoff, hint) if hint is not None else backoff)
         assert result is not None
         return result, attempt_limit
 
@@ -567,6 +583,28 @@ def is_degraded_trace(trace: ExecutionTrace) -> bool:
         and step.error.code == ESCALATION_FAILED_RETAINED_LOWER_TIER
         for step in trace.steps
     )
+
+
+RETRY_BACKOFF_BASE_SECONDS = 0.5
+RETRY_BACKOFF_MAX_SECONDS = 2.0
+
+
+def retry_backoff_seconds(retry_index: int, jitter: float) -> float:
+    """Exponential backoff with "equal jitter" and a non-zero floor (review #12 F9).
+
+    The ceiling doubles per retry (0.5 s, 1 s, 2 s, then capped at 2 s). The
+    delay is drawn from [ceiling / 2, ceiling], so a retry never fires almost
+    immediately, as ``ceiling * random()`` could, while concurrent runs still
+    spread out. ``jitter`` is a value in [0, 1], e.g. ``random.random()``.
+    """
+    if isinstance(retry_index, bool) or retry_index < 0:
+        raise ValueError("RETRY_INDEX_INVALID")
+    if not 0.0 <= jitter <= 1.0:
+        raise ValueError("RETRY_JITTER_OUT_OF_RANGE")
+    ceiling = min(
+        RETRY_BACKOFF_MAX_SECONDS, RETRY_BACKOFF_BASE_SECONDS * 2.0 ** min(retry_index, 8)
+    )
+    return ceiling / 2 + (ceiling / 2) * jitter
 
 
 _SAFE_CODE_PATTERN = re.compile(r"^[A-Za-z0-9_./-]{1,80}$")
