@@ -21,12 +21,12 @@ from llm_routing_eval.core import (
     RoutingDecision,
     StrategyId,
 )
-
 from llm_routing_eval.routing.cascade_policy import (
     CascadeEscalationDecision,
     CascadeEscalationPolicy,
     ConfiguredCascadeEscalationPolicy,
 )
+
 
 ModelTier = Literal["small", "large"]
 _SAFE_RULE_CODE = re.compile(r"^[A-Z][A-Z0-9_]{0,39}$")
