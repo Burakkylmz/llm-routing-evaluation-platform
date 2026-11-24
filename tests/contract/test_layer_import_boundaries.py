@@ -199,7 +199,7 @@ def test_layer_respects_dependency_direction(layer: str) -> None:
         (
             "application",
             "llm_routing_eval.application",
-            'import builtins as alias\nalias.__import__("llm_routing_eval.adapters.providers.groq")',
+            'import builtins as alias\nalias.__import__("llm_routing_eval.cli")',
         ),
         (
             "routing",
