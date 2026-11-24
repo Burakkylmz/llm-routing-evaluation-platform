@@ -146,3 +146,17 @@ and cannot safely be removed without a separately agreed Core/RouterPort
 capability contract, call-budget semantics, fingerprinting and integration
 tests. This refactoring does not claim to resolve that cross-team OCP concern,
 nor does it authorize live model calls.
+
+## Development-only routing calibration (`calibrate-routing`)
+
+`calibrate-routing` derives the kNN `k` and `minimum_similarity` values and the Cascade `escalate_scenarios` list from labeled **development** examples, instead of hand-picking them. It never uses held-out data.
+
+```bash
+uv run llm-routing-eval calibrate-routing --examples examples/synthetic_development_calibration.json
+```
+
+- **Input** (Member 03 hand-off; see `examples/synthetic_development_calibration.json`): `schema_version`, `dataset_version`, `split: "development"`, and examples with `example_id`, `input_text`, `scenario_type`, `tier` (the smallest sufficient tier), `split: "development"` and `synthetic: true`. Any other split or extra field (for example golden facts) is rejected.
+- **kNN:** leave-one-out over `k` × `minimum_similarity`, with the same embedder and vote as `KnnRouter`. The under-routing rate (large-labeled examples routed to small) must stay within `--max-under-routing-rate` (default 0.05). Among the settings that pass, the most accurate wins; ties go to fewer under-routed examples, then the higher threshold, then the smaller `k`. If no setting passes, the command exits `3`, writes the report and writes no settings file.
+- **Cascade:** a scenario escalates when its large-label share exceeds `--max-small-risk` (default 0.2) or when it has fewer than `--min-scenario-examples` examples (default 3).
+- **Safety:** before anything is written, the calibrated settings pass the strict loader, the **F4 isolation guard** against `--dataset`, and the router factory for both kNN and Cascade. The report contains IDs, counts, rates and the base/calibrated policy digests, never example text.
+- **Limits:** development labels are not a held-out quality result. The embedding is the lexical hashing embedding, not validated semantic retrieval. The input must be `synthetic: true` until a policy for real development data is agreed with Members 01, 03 and 04.

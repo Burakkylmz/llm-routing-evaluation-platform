@@ -165,5 +165,97 @@ def run(
         raise typer.Exit(code=2) from None
 
 
+@app.command("calibrate-routing")
+def calibrate_routing(
+    examples: Annotated[Path, typer.Option(help="Development-only labeled calibration JSON")],
+    config: Annotated[Path, typer.Option(help="Base YAML settings file")] = DEFAULT_CONFIG,
+    dataset: Annotated[
+        Path, typer.Option(help="Evaluation dataset that calibration data must not overlap")
+    ] = DEFAULT_DATASET,
+    output_config: Annotated[Path, typer.Option(help="Calibrated settings YAML")] = Path(
+        "artifacts/settings.calibrated.yaml"
+    ),
+    report: Annotated[Path, typer.Option(help="Text-free calibration evidence JSON")] = Path(
+        "artifacts/routing_calibration_report.json"
+    ),
+    max_under_routing_rate: Annotated[
+        float, typer.Option(help="kNN ceiling for large-labeled examples routed to small")
+    ] = 0.05,
+    max_small_risk: Annotated[
+        float, typer.Option(help="Cascade: escalate scenarios whose large share exceeds this")
+    ] = 0.2,
+    min_scenario_examples: Annotated[
+        int, typer.Option(help="Cascade: escalate scenarios with fewer development examples")
+    ] = 3,
+) -> None:
+    """Calibrate kNN/Cascade on development data only; offline, no network."""
+    from llm_routing_eval.cli.calibration import (
+        apply_calibration,
+        atomic_write,
+        calibration_report,
+        dump_settings,
+        read_calibration_dataset,
+    )
+    from llm_routing_eval.cli.configuration import routing_policy_digest
+    from llm_routing_eval.routing import HashingEmbedding
+    from llm_routing_eval.routing.calibration import calibrate_cascade, calibrate_knn
+
+    try:
+        settings = read_settings(config)
+        calibration = read_calibration_dataset(examples)
+        _, cases = _load_demo_cases(dataset)
+        calibration_examples = calibration.calibration_examples()
+        knn = asyncio.run(
+            calibrate_knn(
+                calibration_examples,
+                # Same embedder and dimensions as build_offline_router uses for kNN.
+                HashingEmbedding(dimensions=settings.routing.knn.embedding_dimensions),
+                max_under_routing_rate=max_under_routing_rate,
+            )
+        )
+        cascade = calibrate_cascade(
+            calibration_examples,
+            max_small_risk=max_small_risk,
+            min_scenario_examples=min_scenario_examples,
+        )
+        evidence = calibration_report(calibration, knn, cascade)
+        evidence["base_policy_digests"] = {
+            strategy.value: routing_policy_digest(settings, strategy)
+            for strategy in (StrategyId.KNN, StrategyId.CASCADE)
+        }
+        if knn.selected is None:
+            atomic_write(report, json.dumps(evidence, indent=2, ensure_ascii=False) + "\n")
+            typer.echo("KNN_CALIBRATION_INFEASIBLE: no grid point meets the ceiling", err=True)
+            typer.echo(f"REPORT: {report}")
+            raise typer.Exit(code=3)
+        calibrated = apply_calibration(settings, calibration, knn, cascade)
+        # Same guards as `run`, before anything is written: F4 isolation against
+        # the evaluation dataset, and both calibrated routers must build.
+        enforce_development_isolation(calibrated, cases)
+        for strategy in (StrategyId.KNN, StrategyId.CASCADE):
+            asyncio.run(build_offline_router(calibrated, strategy))
+        evidence["calibrated_policy_digests"] = {
+            strategy.value: routing_policy_digest(calibrated, strategy)
+            for strategy in (StrategyId.KNN, StrategyId.CASCADE)
+        }
+        atomic_write(report, json.dumps(evidence, indent=2, ensure_ascii=False) + "\n")
+        atomic_write(output_config, dump_settings(calibrated))
+        selected = knn.selected
+        typer.echo("MODE: DEVELOPMENT_ONLY_CALIBRATION (NOT a held-out quality result)")
+        typer.echo(
+            f"KNN: k={selected.k} minimum_similarity={selected.minimum_similarity:.2f} "
+            f"accuracy={selected.accuracy:.3f} under_routing={selected.under_routing_rate:.3f}"
+        )
+        typer.echo("CASCADE_ESCALATE: " + (",".join(cascade.escalate_scenarios) or "<none>"))
+        typer.echo(f"CONFIG: {output_config}")
+        typer.echo(f"REPORT: {report}")
+    except BenchmarkInputError as exc:
+        typer.echo(f"CALIBRATION_FAILED: {exc}", err=True)
+        raise typer.Exit(code=2) from None
+    except (ValueError, ValidationError, OSError):
+        typer.echo("CALIBRATION_FAILED: CALIBRATION_INPUT_INVALID", err=True)
+        raise typer.Exit(code=2) from None
+
+
 if __name__ == "__main__":
     app()
