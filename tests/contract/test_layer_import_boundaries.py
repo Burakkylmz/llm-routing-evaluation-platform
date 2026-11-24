@@ -194,17 +194,17 @@ def test_layer_respects_dependency_direction(layer: str) -> None:
         (
             "routing",
             "llm_routing_eval.routing",
-            'import builtins\\nbuiltins.__import__("llm_routing_eval.adapters.providers.groq")',
+            'import builtins\nbuiltins.__import__("llm_routing_eval.adapters.providers.groq")',
         ),
         (
             "application",
             "llm_routing_eval.application",
-            'import builtins as alias\\nalias.__import__("llm_routing_eval.adapters.providers.groq")',
+            'import builtins as alias\nalias.__import__("llm_routing_eval.adapters.providers.groq")',
         ),
         (
             "routing",
             "llm_routing_eval.routing",
-            "from builtins import __import__ as load\\nload(name)",
+            "from builtins import __import__ as load\nload(name)",
         ),
     ],
 )
@@ -226,11 +226,11 @@ def test_known_bypasses_are_detected(layer: str, package: str, source: str) -> N
         ("adapters/providers", "llm_routing_eval.adapters.providers", "import httpx"),
         ("application", "llm_routing_eval.application", "from .orchestrator import RunOptions"),
         ("application", "llm_routing_eval.application", "import pydantic"),
-        ("routing", "llm_routing_eval.routing", "import builtins\\nbuiltins.len([1, 2])"),
+        ("routing", "llm_routing_eval.routing", "import builtins\nbuiltins.len([1, 2])"),
         (
             "application",
             "llm_routing_eval.application",
-            "from builtins import len as safe_len\\nsafe_len([1, 2])",
+            "from builtins import len as safe_len\nsafe_len([1, 2])",
         ),
     ],
 )
