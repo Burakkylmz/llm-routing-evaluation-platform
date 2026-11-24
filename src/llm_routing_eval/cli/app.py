@@ -165,6 +165,53 @@ def run(
         raise typer.Exit(code=2) from None
 
 
+@app.command("groq-preflight")
+def groq_preflight(
+    config: Annotated[Path, typer.Option(help="YAML settings file")] = DEFAULT_CONFIG,
+    providers: Annotated[Path, typer.Option(help="Provider manifest YAML")] = Path(
+        "config/providers.yaml"
+    ),
+    pricing: Annotated[Path, typer.Option(help="Pricing manifest YAML")] = Path(
+        "config/pricing.yaml"
+    ),
+    json_output: Annotated[
+        bool, typer.Option("--json", help="Print machine-readable JSON")
+    ] = False,
+) -> None:
+    """Offline live-readiness check for Groq. Never calls the network; always BLOCKED.
+
+    Exit code 2 means BLOCKED (the expected result today); 3 means invalid config.
+    """
+    from llm_routing_eval.cli.groq_preflight import (
+        assess_groq_preflight,
+        read_pricing_manifest,
+        read_provider_manifest,
+    )
+
+    try:
+        result = assess_groq_preflight(
+            read_provider_manifest(providers),
+            read_pricing_manifest(pricing),
+            read_settings(config),
+        )
+    except (BenchmarkInputError, ValueError) as exc:
+        code = str(exc) if isinstance(exc, BenchmarkInputError) else str(exc.args[0])
+        typer.echo(f"GROQ_PREFLIGHT_CONFIG_INVALID: {code}", err=True)
+        raise typer.Exit(code=3) from None
+    if json_output:
+        typer.echo(result.model_dump_json(indent=2))
+    else:
+        typer.echo(f"GROQ_PREFLIGHT_STATUS: {result.status}")
+        for check in result.checks:
+            typer.echo(f"  [{'PASS' if check.passed else 'FAIL'}] {check.name}")
+        typer.echo("BLOCKERS:")
+        for blocker in result.blockers:
+            owner = result.external_owners.get(blocker)
+            typer.echo(f"  - {blocker}" + (f" (needs: {owner})" if owner else ""))
+        typer.echo("NOTE: offline diagnostic only; no network call was made.")
+    raise typer.Exit(code=2)
+
+
 @app.command("compare-routing")
 def compare_routing(
     config: Annotated[Path, typer.Option(help="YAML settings file")] = DEFAULT_CONFIG,
