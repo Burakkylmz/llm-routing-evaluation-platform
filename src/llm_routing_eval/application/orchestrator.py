@@ -62,7 +62,7 @@ def _retry_backoff_seconds(retry_index: int, jitter: float) -> float:
     from concurrent retrying clients are reduced without extending the
     configured retry or provider-call budget.
     """
-    ceiling = min(_RETRY_CAP_SECONDS, _RETRY_BASE_SECONDS * (2**retry_index))
+    ceiling = min(_RETRY_CAP_SECONDS, _RETRY_BASE_SECONDS * float(2**retry_index))
     return ceiling * (0.5 + 0.5 * jitter)
 
 
