@@ -49,6 +49,9 @@ from llm_routing_eval.core import (
     TraceStepKind,
 )
 
+# Provenance ID for the existing equal-jitter policy with bounded 429 Retry-After.
+RETRY_BACKOFF_POLICY_VERSION = "equal-jitter-0p5s-429-v1"
+
 
 class RunOptions(BaseModel):
     """Validated, secret-free configuration for a single sequential benchmark."""
@@ -92,6 +95,9 @@ class RunOptions(BaseModel):
 
     def fingerprint(self) -> str:
         payload = self.model_dump(mode="json")
+        if self.max_retries > 0:
+            # Retry policy affects observed latency and needs versioned provenance.
+            payload["retry_backoff_policy_version"] = RETRY_BACKOFF_POLICY_VERSION
         return (
             "sha256:"
             + hashlib.sha256(
@@ -185,6 +191,9 @@ class BenchmarkOrchestrator:
                 "execution_mode": "offline_demo" if options.provider == "fake" else "configured",
                 "prompt_version": options.prompt_version,
                 "privacy_boundary": "pre-routing and pre-provider",
+                "retry_backoff_policy": (
+                    RETRY_BACKOFF_POLICY_VERSION if options.max_retries else "no_retries"
+                ),
                 "dataset_identifiers_sha256": hashlib.sha256(
                     json.dumps(
                         [case.case_id for case in cases],

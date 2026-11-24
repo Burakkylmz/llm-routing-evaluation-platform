@@ -94,3 +94,28 @@ Historic fingerprint values remain immutable in stored reports. In particular,
 previously computed fingerprints must not be rewritten or reassigned to old
 results. A SHA-256 run fingerprint is **not a privacy/redaction guarantee**:
 privacy approval and held-out data isolation are independent gates.
+
+## F9 — Retry backoff provenance on current main (Issue #29)
+
+PR #34 already introduced positive bounded **equal jitter** retry delays:
+`ceiling = min(2.0, 0.5 * 2**index)` seconds; wait is
+`ceiling / 2 + (ceiling / 2) * random.random()`. The first retry
+therefore waits at least **250 ms**, with a **2 s** maximum.
+
+PR #35 added HTTP 429 `Retry-After` handling. A valid hint is treated as a
+minimum wait; if it exceeds the configured `max_retry_wait_seconds`, retries
+stop rather than firing earlier than requested. This PR **preserves** both
+merged behaviors instead of reintroducing an older, incompatible backoff
+function. The application still enforces the configured retry and model-call
+budgets, cancellation and fail-closed safeguards.
+
+For reporting reproducibility, the existing policy is labeled
+`equal-jitter-0p5s-429-v1` in benchmark report provenance and the run
+fingerprint **only when retry attempts are enabled**. Runs with
+`max_retries=0` retain the current main branch's fingerprint formula.
+Historical results and hashes are immutable; never relabel prior runs.
+
+The attached synthetic offline tests validate backoff bounds, retry sequencing,
+no extra calls after terminal outcomes, cancellation propagation and
+fingerprint differences. They do not authorize live Groq/NVIDIA benchmarks or
+replace Member 01, Member 03 and Member 04 approvals.
