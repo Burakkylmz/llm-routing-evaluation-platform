@@ -32,8 +32,9 @@ class CascadeEscalationDecision:
 class CascadeEscalationPolicy(Protocol):
     """Extension point: choose whether stage one should escalate."""
 
-    def evaluate(self, case: BenchmarkCase, feedback: RoutingFeedback) -> CascadeEscalationDecision:
-        ...
+    def evaluate(
+        self, case: BenchmarkCase, feedback: RoutingFeedback
+    ) -> CascadeEscalationDecision: ...
 
 
 @dataclass(frozen=True, slots=True)
