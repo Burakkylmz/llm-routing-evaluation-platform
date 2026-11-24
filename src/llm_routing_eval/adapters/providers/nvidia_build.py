@@ -31,6 +31,9 @@ from llm_routing_eval.core import (
     TokenUsage,
 )
 
+from .authorization import DenyAllOutbound, OutboundAuthorization, is_authorized
+from .retry_after import checked_hint
+
 NVIDIA_CHAT_ENDPOINT = "https://integrate.api.nvidia.com/v1/chat/completions"
 _MAX_RESPONSE_BYTES = 2_000_000
 _MODEL_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._/-]{0,127}$")
@@ -57,6 +60,8 @@ class NvidiaBuildConfig:
 class NvidiaHttpResult:
     status_code: int
     body: bytes
+    # Parsed numeric Retry-After seconds for HTTP 429 only; never the raw header.
+    retry_after_seconds: float | None = None
 
 
 class NvidiaTransportTimeout(Exception):
@@ -163,8 +168,14 @@ class NvidiaBuildProvider:
         config: NvidiaBuildConfig,
         *,
         transport: NvidiaTransportPort | None = None,
+        outbound_authorization: OutboundAuthorization | None = None,
     ) -> None:
         self._config = config
+        # Per-request privacy capability check; deny-all unless a reviewed
+        # authorizer is injected (privacy_approved alone is not sufficient).
+        self._outbound = (
+            outbound_authorization if outbound_authorization is not None else DenyAllOutbound()
+        )
         # Review #12 F1: no implicit thread-based default (see GroqProvider).
         self._transport = transport
 
@@ -177,6 +188,7 @@ class NvidiaBuildProvider:
             status: CallStatus = CallStatus.FAILED,
             *,
             retryable: bool = False,
+            retry_after_seconds: float | None = None,
         ) -> ModelResponse:
             return ModelResponse(
                 provider="nvidia_build",
@@ -185,7 +197,12 @@ class NvidiaBuildProvider:
                 status=status,
                 metric_origin=MetricOrigin.OBSERVED,
                 latency_ms=(perf_counter() - started) * 1000,
-                error=ErrorInfo(category=category, code=code, retryable=retryable),
+                error=ErrorInfo(
+                    category=category,
+                    code=code,
+                    retryable=retryable,
+                    retry_after_seconds=retry_after_seconds,
+                ),
             )
 
         if not self._config.live_enabled or not self._config.privacy_approved:
@@ -200,6 +217,9 @@ class NvidiaBuildProvider:
         ):
             return failed(ErrorCategory.VALIDATION, "NVIDIA_INVALID_TOP_P")
 
+        # Asked per request, before any credential is read or byte is sent.
+        if not is_authorized(self._outbound, request):
+            return failed(ErrorCategory.PRIVACY, "NVIDIA_OUTBOUND_NOT_AUTHORIZED")
         key = os.environ.get("NVIDIA_API_KEY", "").strip()
         if not key:
             return failed(ErrorCategory.PROVIDER, "NVIDIA_API_KEY_MISSING")
@@ -244,6 +264,7 @@ class NvidiaBuildProvider:
                     "NVIDIA_RATE_LIMITED",
                     CallStatus.RATE_LIMITED,
                     retryable=True,
+                    retry_after_seconds=checked_hint(result.retry_after_seconds),
                 )
             if result.status_code in (408, 504):
                 return failed(

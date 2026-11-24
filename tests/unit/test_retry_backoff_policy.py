@@ -14,7 +14,7 @@ import pytest
 from llm_routing_eval.application import BenchmarkOrchestrator, RunOptions
 from llm_routing_eval.application.orchestrator import (
     RETRY_BACKOFF_POLICY_VERSION,
-    _retry_backoff_seconds,
+    retry_backoff_seconds,
 )
 from llm_routing_eval.core import (
     BenchmarkCase,
@@ -76,9 +76,9 @@ class RetrySequence:
 @pytest.mark.parametrize(
     ("retry_index", "minimum_seconds", "maximum_seconds"),
     [
-        (0, 0.125, 0.25),
-        (1, 0.25, 0.5),
-        (2, 0.5, 1.0),
+        (0, 0.25, 0.5),
+        (1, 0.5, 1.0),
+        (2, 1.0, 2.0),
         (3, 1.0, 2.0),
         (4, 1.0, 2.0),
     ],
@@ -86,9 +86,9 @@ class RetrySequence:
 def test_equal_jitter_has_strict_positive_floor_and_cap(
     retry_index: int, minimum_seconds: float, maximum_seconds: float
 ) -> None:
-    assert _retry_backoff_seconds(retry_index, 0.0) == pytest.approx(minimum_seconds)
-    assert _retry_backoff_seconds(retry_index, 1.0) == pytest.approx(maximum_seconds)
-    assert minimum_seconds <= _retry_backoff_seconds(retry_index, 0.5) <= maximum_seconds
+    assert retry_backoff_seconds(retry_index, 0.0) == pytest.approx(minimum_seconds)
+    assert retry_backoff_seconds(retry_index, 1.0) == pytest.approx(maximum_seconds)
+    assert minimum_seconds <= retry_backoff_seconds(retry_index, 0.5) <= maximum_seconds
 
 
 def test_zero_jitter_still_waits_between_retryable_attempts(
@@ -119,7 +119,7 @@ def test_zero_jitter_still_waits_between_retryable_attempts(
     attempts = [
         item for item in result.traces[0].steps if item.kind is TraceStepKind.PROVIDER_ATTEMPT
     ]
-    assert observed_delays == pytest.approx([0.125, 0.25, 0.5])
+    assert observed_delays == pytest.approx([0.25, 0.5, 1.0])
     assert len(attempts) == len(provider.attempts) == len(set(provider.attempts)) == 4
     assert [attempt.call_status for attempt in attempts] == [
         CallStatus.RATE_LIMITED,
@@ -164,7 +164,7 @@ def test_no_extra_sleep_when_success_not_retryable_or_budget_exhausted(
     )
     assert len(provider.attempts) == expected_calls
     assert len(delays) == max(0, expected_calls - 1)
-    assert all(wait >= 0.125 for wait in delays)
+    assert all(wait >= 0.25 for wait in delays)
     assert (
         len(
             [step for step in result.traces[0].steps if step.kind is TraceStepKind.PROVIDER_ATTEMPT]

@@ -16,6 +16,14 @@ from llm_routing_eval.adapters.providers.nvidia_build import (
 )
 from llm_routing_eval.core import CallStatus, ErrorCategory, MetricOrigin, ModelRequest
 
+
+class AllowAllForTests:
+    """Test-only OutboundAuthorization. Never use outside offline tests."""
+
+    def authorize(self, request: object) -> bool:
+        return True
+
+
 MODEL = "vendor/offline-test-model"
 
 
@@ -87,6 +95,7 @@ def _provider(
             privacy_approved=privacy,
         ),
         transport=transport,
+        outbound_authorization=AllowAllForTests(),
     )
 
 
