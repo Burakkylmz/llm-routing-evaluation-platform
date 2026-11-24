@@ -170,3 +170,40 @@ def test_invalid_strategy_or_live_config_fails_closed(tmp_path: Path) -> None:
     result = runner.invoke(app, ["run", "--config", str(config)])
     assert result.exit_code == 2
     assert "LIVE_MODE_NOT_IMPLEMENTED" in result.output
+
+
+@pytest.mark.parametrize("collision", ["case_id", "input_text"])
+def test_cascade_rejects_calibration_development_overlap_before_run(
+    tmp_path: Path, collision: str
+) -> None:
+    """Cascade must not evaluate cases reused from its development examples."""
+    settings = yaml.safe_load(CONFIG.read_text(encoding="utf-8"))
+    dataset = json.loads(DATASET.read_text(encoding="utf-8"))
+    example = settings["routing"]["knn"]["examples"][0]
+    evaluation_case = dataset["cases"][0]
+    if collision == "case_id":
+        example["example_id"] = evaluation_case["case_id"]
+    else:
+        example["input_text"] = evaluation_case["input_text"]
+
+    config = tmp_path / "cascade-calibrated.yaml"
+    config.write_text(yaml.safe_dump(settings), encoding="utf-8")
+    output = tmp_path / "must-not-exist.jsonl"
+    response = runner.invoke(
+        app,
+        [
+            "run",
+            "--config",
+            str(config),
+            "--dataset",
+            str(DATASET),
+            "--strategy",
+            "cascade",
+            "--output",
+            str(output),
+        ],
+    )
+    assert response.exit_code == 2, response.output
+    assert "KNN_DEVELOPMENT_TEST_LEAKAGE" in response.output
+    assert evaluation_case["input_text"] not in response.output
+    assert not output.exists()

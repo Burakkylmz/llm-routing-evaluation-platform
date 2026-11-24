@@ -160,6 +160,7 @@ uv run llm-routing-eval calibrate-routing --examples examples/synthetic_developm
 - **Cascade:** a scenario escalates when its large-label share exceeds `--max-small-risk` (default 0.2) or when it has fewer than `--min-scenario-examples` examples (default 3).
 - **Safety:** before anything is written, the calibrated settings pass the strict loader, the **F4 isolation guard** against `--dataset`, and the router factory for both kNN and Cascade. The report contains IDs, counts, rates and the base/calibrated policy digests, never example text.
 - **Limits:** development labels are not a held-out quality result. The embedding is the lexical hashing embedding, not validated semantic retrieval. The input must be `synthetic: true` until a policy for real development data is agreed with Members 01, 03 and 04.
+- **Evaluation reuse guard (P1 / #46):** any subsequent `run --strategy cascade` using calibrated settings checks the same stored development examples against the *active* evaluation dataset before routing or artifact writes, just like kNN; this also applies when the evaluation dataset differs from the calibration-time `--dataset`. Matching case IDs, normalized text and high-confidence near copies are rejected with the existing redacted `KNN_DEVELOPMENT_TEST_LEAKAGE` code. This heuristic is not proof of a genuine held-out split: Member 03 must supply versioned provenance and a separate semantic-leakage review.
 
 ## Four-strategy offline comparison (`compare-routing`)
 

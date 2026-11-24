@@ -128,7 +128,9 @@ def run(
         settings = read_settings(config)
         options = demo_options(settings, strategy_override=_strategy_override(strategy))
         dataset_version, cases = _load_demo_cases(dataset)
-        if options.strategy is StrategyId.KNN:
+        if options.strategy in (StrategyId.KNN, StrategyId.CASCADE):
+            # Calibrated Cascade also learns from development examples stored in
+            # routing.knn.examples. Check the active evaluation split before run.
             enforce_development_isolation(settings, cases)
         router = asyncio.run(build_offline_router(settings, options.strategy))
         options = options.model_copy(update={"dataset_version": dataset_version})
