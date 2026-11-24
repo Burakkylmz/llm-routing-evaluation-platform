@@ -332,6 +332,7 @@ def calibrate_routing(
             calibration_examples,
             max_small_risk=max_small_risk,
             min_scenario_examples=min_scenario_examples,
+            known_scenarios=settings.routing.cascade.escalate_scenarios,
         )
         evidence = calibration_report(calibration, knn, cascade)
         evidence["base_policy_digests"] = {
