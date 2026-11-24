@@ -17,6 +17,7 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_valida
 
 from llm_routing_eval.application import BenchmarkInputError, RunOptions
 from llm_routing_eval.core import StrategyId
+from llm_routing_eval.routing.embeddings import HASHING_EMBEDDING_VERSION
 
 
 class _SettingsBase(BaseModel):
@@ -149,7 +150,7 @@ def routing_policy_digest(settings: OfflineSettings, strategy: StrategyId) -> st
     elif strategy is StrategyId.KNN:
         selected_policy = {
             "knn": settings.routing.knn.model_dump(mode="json"),
-            "embedding_implementation": "sha256-lexical-feature-hash-v1",
+            "embedding_implementation": HASHING_EMBEDDING_VERSION,
         }
     elif strategy is StrategyId.CASCADE:
         cascade = settings.routing.cascade
