@@ -93,3 +93,18 @@ or protect against contamination outside that active evaluation set. Member 03
 must supply versioned split metadata and immutable content provenance before
 golden-set benchmarking. Member 04 must validate privacy and persistence gates.
 Neither the offline guard nor green CI authorizes live provider traffic.
+
+## F1 defense-in-depth — Legacy transport rejection (Issue #21)
+
+The built-in `GroqHttpTransport` and `NvidiaHttpTransport` use
+`asyncio.to_thread`, which cannot cancel an in-flight urllib request.
+Neither class is a safe live provider transport. Groq/NVIDIA providers now
+**reject explicitly injected legacy transports** with stable non-retryable
+`*_UNSAFE_THREAD_TRANSPORT` errors before the request is dispatched.
+
+These classes remain accessible only for isolated historical unit tests of
+their low-level HTTP behavior. Production provider composition must use
+reviewed cancellable native-async transports such as the HTTPX adapters.
+Other custom `LLMProviderPort` transports require their own cancellation,
+deadline and privacy review; dependency injection by itself does not prove
+those guarantees. No change authorizes live API calls or overrides Phase E.

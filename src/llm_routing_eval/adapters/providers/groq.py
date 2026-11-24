@@ -201,6 +201,11 @@ class GroqProvider:
             return failure(ErrorCategory.PROVIDER, "GROQ_API_KEY_MISSING")
         if self._transport is None:
             return failure(ErrorCategory.PROVIDER, "GROQ_TRANSPORT_NOT_CONFIGURED")
+        # Non-cancellable to_thread requests can outlive a timed-out attempt and
+        # overlap retries. Reject built-in legacy transports even if explicitly
+        # injected; reviewed async transports and offline test doubles remain valid.
+        if isinstance(self._transport, GroqHttpTransport):
+            return failure(ErrorCategory.PROVIDER, "GROQ_UNSAFE_THREAD_TRANSPORT")
 
         payload: dict[str, object] = {
             "model": request.model,
