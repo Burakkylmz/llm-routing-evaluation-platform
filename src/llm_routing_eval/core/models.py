@@ -85,6 +85,18 @@ class ErrorInfo(ImmutableModel):
     code: NonEmptyStr
     retryable: bool = False
     safe_message: str | None = Field(default=None, repr=False)
+    # Safe numeric HTTP 429 Retry-After hint in seconds. Never raw headers.
+    retry_after_seconds: float | None = Field(
+        default=None, ge=0, le=86_400, allow_inf_nan=False, repr=False
+    )
+
+    @model_validator(mode="after")
+    def only_rate_limits_may_supply_retry_hints(self) -> Self:
+        if self.retry_after_seconds is not None and (
+            self.category is not ErrorCategory.RATE_LIMIT or not self.retryable
+        ):
+            raise ValueError("RETRY_HINT_REQUIRES_RETRYABLE_RATE_LIMIT")
+        return self
 
 
 class BenchmarkCase(VersionedRecord):
