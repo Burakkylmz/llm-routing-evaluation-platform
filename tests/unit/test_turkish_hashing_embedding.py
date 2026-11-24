@@ -32,9 +32,7 @@ CONFIG = Path(__file__).resolve().parents[2] / "config" / "settings.yaml"
         ("KREDİ KARTI", "kredi kartı"),
     ],
 )
-def test_turkish_orthographic_case_variants_have_identical_vectors(
-    first: str, second: str
-) -> None:
+def test_turkish_orthographic_case_variants_have_identical_vectors(first: str, second: str) -> None:
     embedder = HashingEmbedding(dimensions=256)
 
     first_vector, second_vector = asyncio.run(embedder.embed((first, second)))
