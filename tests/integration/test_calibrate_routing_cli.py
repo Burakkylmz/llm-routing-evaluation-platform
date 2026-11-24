@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+import yaml
 from typer.testing import CliRunner
 
 from llm_routing_eval.application import BenchmarkInputError
@@ -21,7 +22,9 @@ DATASET = ROOT / "examples" / "offline_demo_cases.json"
 runner = CliRunner()
 
 
-def _invoke(tmp_path: Path, examples: Path, *extra: str) -> tuple[Any, Path, Path]:
+def _invoke(
+    tmp_path: Path, examples: Path, *extra: str, config: Path = CONFIG
+) -> tuple[Any, Path, Path]:
     config_out = tmp_path / "settings.yaml"
     report = tmp_path / "report.json"
     result = runner.invoke(
@@ -31,7 +34,7 @@ def _invoke(tmp_path: Path, examples: Path, *extra: str) -> tuple[Any, Path, Pat
             "--examples",
             str(examples),
             "--config",
-            str(CONFIG),
+            str(config),
             "--dataset",
             str(DATASET),
             "--output-config",
@@ -89,6 +92,30 @@ def test_cli_writes_loadable_settings_and_text_free_report(tmp_path: Path) -> No
             ],
         )
         assert run.exit_code == 0, run.output
+
+
+def test_cli_preserves_unseen_cascade_guard_in_settings_and_evidence(tmp_path: Path) -> None:
+    base = yaml.safe_load(CONFIG.read_text(encoding="utf-8"))
+    unseen = "UNSEEN_HIGH_RISK_SCENARIO"
+    base["routing"]["cascade"]["escalate_scenarios"] = [
+        *base["routing"]["cascade"]["escalate_scenarios"],
+        unseen,
+    ]
+    config = tmp_path / "base.yaml"
+    config.write_text(yaml.safe_dump(base), encoding="utf-8")
+
+    result, config_out, report = _invoke(tmp_path, EXAMPLES, config=config)
+    assert result.exit_code == 0, result.output
+    calibrated = read_settings(config_out)
+    evidence = json.loads(report.read_text(encoding="utf-8"))
+    scenarios = {s["scenario_type"]: s for s in evidence["cascade"]["scenarios"]}
+    assert unseen in calibrated.routing.cascade.escalate_scenarios
+    assert scenarios[unseen]["examples"] == 0
+    assert scenarios[unseen]["reason"] == "INSUFFICIENT_EVIDENCE"
+    assert tuple(evidence["cascade"]["escalate_scenarios"]) == (
+        calibrated.routing.cascade.escalate_scenarios
+    )
+    assert "input_text" not in report.read_text(encoding="utf-8")
 
 
 def test_cli_infeasible_writes_report_but_no_settings(tmp_path: Path) -> None:
