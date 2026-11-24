@@ -188,3 +188,26 @@ uv run llm-routing-eval groq-preflight --json   # machine-readable
 - **Local checks:** the Groq provider is enabled (`config/providers.yaml`); routing models match the Groq candidate models; execution is `live` with `live_enabled`; `GROQ_API_KEY` is set; pricing is `verified` with input and output rates for both candidate models (`config/pricing.yaml`).
 - **External blockers, always listed, each with an owner:** outbound privacy authorization (Member 04), expert evaluation (Member 03), model/account access recorded by a live smoke test (Member 02), and the live CLI path (Member 01).
 - **Always BLOCKED.** These approvals cannot be inferred from a local toggle or a working key, so the command always exits `2` with `GROQ_PREFLIGHT_STATUS: BLOCKED`. CI asserts this. Invalid configuration exits `3`.
+
+## Calibration F4 preflight — no artifacts before isolation (Issue #39)
+
+`calibrate-routing` now validates every labeled development example
+against the active evaluation cases **before** embedding/index calibration,
+hyperparameter selection or any artifact write. The preflight uses the same
+normalized ID/text and conservative near-copy policy as the offline kNN
+`run` command. It checks the **candidate development examples** from the
+calibration JSON, rather than the possibly different examples in the base
+YAML. The final calibrated config is checked again before output as
+defense in depth.
+
+This matters when a kNN calibration is **infeasible**: the CLI may still
+write a text-free evidence report and return exit code 3, but **only after**
+the preflight overlap check succeeds. A development/evaluation collision
+must fail with `KNN_DEVELOPMENT_TEST_LEAKAGE`, exit code 2, and no generated
+report or configuration file. Synthetic offline regression tests cover
+normalized text and IDs, and verify the calibration embedder is not run
+when overlap is detected.
+
+String-level isolation cannot prove genuine held-out provenance or detect all
+semantic paraphrases. Member 03 dataset-version and split sign-off remains
+required; this change does not authorize real provider traffic.

@@ -305,6 +305,7 @@ def calibrate_routing(
         atomic_write,
         calibration_report,
         dump_settings,
+        enforce_calibration_isolation,
         read_calibration_dataset,
     )
     from llm_routing_eval.cli.configuration import routing_policy_digest
@@ -315,6 +316,9 @@ def calibrate_routing(
         settings = read_settings(config)
         calibration = read_calibration_dataset(examples)
         _, cases = _load_demo_cases(dataset)
+        # F4 must run before calibration computations or either output write,
+        # including the infeasible-result path that writes a report.
+        enforce_calibration_isolation(settings, calibration, cases)
         calibration_examples = calibration.calibration_examples()
         knn = asyncio.run(
             calibrate_knn(
