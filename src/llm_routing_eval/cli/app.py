@@ -165,6 +165,68 @@ def run(
         raise typer.Exit(code=2) from None
 
 
+@app.command("compare-routing")
+def compare_routing(
+    config: Annotated[Path, typer.Option(help="YAML settings file")] = DEFAULT_CONFIG,
+    dataset: Annotated[Path, typer.Option(help="Synthetic demo fixtures JSON")] = DEFAULT_DATASET,
+    output: Annotated[Path, typer.Option(help="Comparison summary JSON destination")] = Path(
+        "artifacts/offline_comparison.json"
+    ),
+) -> None:
+    """Run all four strategies on the same synthetic cases; offline, never live."""
+    from llm_routing_eval.application import RunOptions, StrategyComparisonRunner
+    from llm_routing_eval.cli.calibration import atomic_write
+
+    try:
+        settings = read_settings(config)
+        dataset_version, cases = _load_demo_cases(dataset)
+        # kNN is always part of the comparison, so the F4 guard always applies.
+        enforce_development_isolation(settings, cases)
+
+        def options_for(strategy: StrategyId) -> RunOptions:
+            options = demo_options(settings, strategy_override=strategy)
+            return options.model_copy(update={"dataset_version": dataset_version})
+
+        async def orchestrator_for(strategy: StrategyId) -> BenchmarkOrchestrator:
+            return BenchmarkOrchestrator(
+                router=await build_offline_router(settings, strategy),
+                provider=DemoFakeProvider(),
+                evaluator=DemoFixtureEvaluator(),
+                privacy=AllowlistedDemoPrivacy(),
+                repository=InMemoryDemoRepository(),
+            )
+
+        summary = asyncio.run(
+            StrategyComparisonRunner(
+                orchestrator_factory=orchestrator_for, options_factory=options_for
+            ).compare(cases, dataset_version=dataset_version)
+        )
+        atomic_write(output, summary.model_dump_json(indent=2) + "\n")
+        typer.echo("MODE: OFFLINE_SIMULATION (NOT financial quality or provider latency)")
+        typer.echo(
+            f"{'STRATEGY':<14}{'SUCCESS':>9}{'STRICT':>9}{'DEGRADED':>10}"
+            f"{'ATTEMPTS':>10}{'ATT/CASE':>10}  CALLS BY MODEL"
+        )
+        for row in summary.strategies:
+            calls = ", ".join(f"{model}={count}" for model, count in row.calls_by_model.items())
+            typer.echo(
+                f"{row.strategy.value:<14}"
+                f"{row.successful_cases:>5}/{row.case_count:<3}"
+                f"{row.strict_successful_cases:>5}/{row.case_count:<3}"
+                f"{row.degraded_cases:>10}{row.provider_attempts:>10}"
+                f"{row.attempts_per_case:>10.2f}  {calls}"
+            )
+        typer.echo("STRICT: excludes Cascade answers kept after a failed escalation")
+        typer.echo("COST: UNKNOWN (no verified pricing); LATENCY: local application only")
+        typer.echo(f"REPORT: {output}")
+    except (BenchmarkInputError, BenchmarkPersistenceError) as exc:
+        typer.echo(f"COMPARISON_FAILED: {exc}", err=True)
+        raise typer.Exit(code=2) from None
+    except (ValidationError, ValueError, OSError):
+        typer.echo("COMPARISON_FAILED: COMPARISON_INPUT_INVALID", err=True)
+        raise typer.Exit(code=2) from None
+
+
 @app.command("calibrate-routing")
 def calibrate_routing(
     examples: Annotated[Path, typer.Option(help="Development-only labeled calibration JSON")],

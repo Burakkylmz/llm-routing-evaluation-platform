@@ -33,6 +33,8 @@ jobs:
           uv run --locked llm-routing-eval run --config config/settings.yaml \
             --dataset examples/offline_demo_cases.json \
             --output artifacts/ci_offline_demo.jsonl
+          uv run --locked llm-routing-eval compare-routing \
+            --output artifacts/ci_offline_comparison.json
           uv run --locked llm-routing-eval calibrate-routing \
             --examples examples/synthetic_development_calibration.json \
             --output-config artifacts/ci_settings.calibrated.yaml \
