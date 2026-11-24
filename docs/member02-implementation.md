@@ -39,3 +39,21 @@ The integration test executes all four routers on the **same synthetic, allowlis
 2. Validate/review the completed YAML router configuration and offline CLI composition with Member 01.
 3. Validate/review the completed Groq adapter behind `LLMProviderPort` with Member 04 privacy and safe persistence implementation before live wiring.
 4. Review the existing NVIDIA Build M5 adapter separately before live use; its offline transport tests are complete, but model availability, account access and live benchmark integration are unverified.
+
+
+## F6 — Turkish lexical casefold and reproducibility (Issue #23)
+
+The offline SHA-256 feature-hash embedding now applies Unicode NFKC and
+Turkish dotted/dotless-I case mapping before generic casefold/tokenization.
+Examples such as `İŞLEM` / `işlem`, `IŞIK` / `ışık`, and decomposed dotted-I
+must yield identical vectors under this **Turkish-domain-specific** rule.
+`İ` and `I` are distinct letters and remain distinct after normalization.
+
+This changes kNN token hashing and can change its routing decisions. The
+composition-root fingerprint therefore records the versioned embedding ID
+`sha256-lexical-feature-hash-tr-casefold-v2`, not the old
+`sha256-lexical-feature-hash-v1`. Re-run offline kNN results before comparing
+strategies across versions; existing results must not be silently relabeled.
+The adapter remains **lexical rather than semantic** and is intended only for
+synthetic, offline Turkish banking evaluation. Member 03 must still approve
+held-out split provenance and evaluation methodology before any live benchmark.

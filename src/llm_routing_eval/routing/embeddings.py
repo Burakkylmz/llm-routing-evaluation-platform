@@ -9,8 +9,21 @@ from __future__ import annotations
 import hashlib
 import math
 import re
+import unicodedata
 
+# Fingerprinted by the composition root; tokenization semantics changed in v2.
+HASHING_EMBEDDING_VERSION = "sha256-lexical-feature-hash-tr-casefold-v2"
 _TOKEN_PATTERN = re.compile(r"\w+", flags=re.UNICODE)
+
+
+def _normalize_lexical_text(text: str) -> str:
+    """Normalize Turkish I/i before generic Unicode casefold and token hashing.
+
+    Unicode NFKC joins decomposed dotted-I (I + combining dot) into İ, then
+    applies the locale-appropriate mappings: İ -> i and I -> ı.
+    """
+    normalized = unicodedata.normalize("NFKC", text)
+    return normalized.replace("İ", "i").replace("I", "ı").casefold()
 
 
 class HashingEmbedding:
@@ -25,7 +38,7 @@ class HashingEmbedding:
         result: list[tuple[float, ...]] = []
         for text in texts:
             vector = [0.0] * self._dimensions
-            for token in _TOKEN_PATTERN.findall(text.casefold()):
+            for token in _TOKEN_PATTERN.findall(_normalize_lexical_text(text)):
                 digest = hashlib.sha256(token.encode("utf-8")).digest()
                 index = int.from_bytes(digest[:8], "big") % self._dimensions
                 vector[index] += 1.0
