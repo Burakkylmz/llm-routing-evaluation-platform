@@ -4,6 +4,7 @@ import asyncio
 from collections.abc import Callable
 
 import pytest
+from pydantic import ValidationError
 
 from llm_routing_eval.application import (
     BenchmarkInputError,
@@ -326,20 +327,30 @@ def test_cascade_retries_cannot_exceed_global_model_call_budget() -> None:
 
     router = RetryingRouter()
     provider = RetryableTimeout()
-    engine, _ = setup(router=router, provider=provider, sleep=no_sleep)
-    result = asyncio.run(
-        engine.run(
-            [fixture_case()],
-            opts(strategy=StrategyId.CASCADE, max_model_calls_per_case=2, max_retries=3),
-        )
+    # Review #12 F3: this budget would let small-stage retries starve escalation.
+    with pytest.raises(ValidationError, match="CASCADE_CALL_BUDGET_TOO_SMALL_FOR_RETRIES"):
+        opts(strategy=StrategyId.CASCADE, max_model_calls_per_case=2, max_retries=3)
+
+    # Defense in depth: even if validation is bypassed, the global cap holds and
+    # the skipped escalation is explicit in the trace.
+    unchecked = RunOptions.model_construct(
+        allowed_models=("large", "small"),
+        strategy=StrategyId.CASCADE,
+        max_model_calls_per_case=2,
+        max_retries=3,
     )
-    attempts = [
-        step for step in result.traces[0].steps if step.kind is TraceStepKind.PROVIDER_ATTEMPT
-    ]
+    engine, _ = setup(router=router, provider=provider, sleep=no_sleep)
+    result = asyncio.run(engine.run([fixture_case()], unchecked))
+    steps = result.traces[0].steps
+    attempts = [step for step in steps if step.kind is TraceStepKind.PROVIDER_ATTEMPT]
     assert result.traces[0].status is ExecutionStatus.FAILED
     assert result.evaluations[0].status is EvaluationStatus.NOT_EVALUATED
-    assert router.decisions == 1
     assert provider.calls == len(attempts) == 2
+    assert {a.model for a in attempts} == {"small"}
+    assert router.decisions == 2  # stage 0 + the budget-blocked escalation probe
+    assert [s.error.code for s in steps if s.kind is TraceStepKind.ERROR and s.error] == [
+        "ESCALATION_SKIPPED_CALL_BUDGET"
+    ]
 
 
 def test_unapproved_model_is_not_called() -> None:

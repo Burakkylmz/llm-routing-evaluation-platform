@@ -90,7 +90,12 @@ class _RejectRedirects(HTTPRedirectHandler):
 
 
 class GroqHttpTransport:
-    """Bounded, no-redirect HTTPS transport; orchestrator owns retry decisions."""
+    """Bounded, no-redirect HTTPS transport; orchestrator owns retry decisions.
+
+    WARNING (review #12 F1): runs in ``asyncio.to_thread``. A cancelled or
+    timed-out attempt does NOT stop the thread, so retries can overlap it. It is
+    never a default; prefer ``HttpxGroqTransport`` for any live run.
+    """
 
     async def post_completion(
         self,
@@ -151,7 +156,10 @@ class GroqProvider:
 
     def __init__(self, config: GroqConfig, *, transport: GroqTransportPort | None = None) -> None:
         self._config = config
-        self._transport = transport if transport is not None else GroqHttpTransport()
+        # Review #12 F1: no implicit default. GroqHttpTransport runs urllib in a
+        # worker thread that a timeout cannot cancel; live use must inject the
+        # cancellable HttpxGroqTransport (see httpx_transport.py).
+        self._transport = transport
 
     async def generate(self, request: ModelRequest) -> ModelResponse:
         start = perf_counter()
@@ -191,6 +199,8 @@ class GroqProvider:
         key = os.environ.get("GROQ_API_KEY", "").strip()
         if not key:
             return failure(ErrorCategory.PROVIDER, "GROQ_API_KEY_MISSING")
+        if self._transport is None:
+            return failure(ErrorCategory.PROVIDER, "GROQ_TRANSPORT_NOT_CONFIGURED")
 
         payload: dict[str, object] = {
             "model": request.model,

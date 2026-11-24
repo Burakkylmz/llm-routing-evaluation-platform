@@ -78,6 +78,13 @@ class RunOptions(BaseModel):
             raise ValueError("Provider and allowed models must be defined")
         if len(set(self.allowed_models)) != len(self.allowed_models):
             raise ValueError("Allowed models must be unique")
+        # Review #12 F3: retries of the small stage must never consume the
+        # escalation stage's budget; the large model gets the same retry
+        # allowance as in the Always-Large baseline.
+        if self.strategy is StrategyId.CASCADE and self.max_model_calls_per_case < 2 * (
+            self.max_retries + 1
+        ):
+            raise ValueError("CASCADE_CALL_BUDGET_TOO_SMALL_FOR_RETRIES")
         return self
 
     def fingerprint(self) -> str:
@@ -239,6 +246,31 @@ class BenchmarkOrchestrator:
                     # The cap applies to all provider attempts, including retries.
                     remaining_calls = options.max_model_calls_per_case - model_calls_used
                     if remaining_calls <= 0:
+                        if options.strategy is StrategyId.CASCADE and feedback:
+                            # Defense in depth for budgets that bypass RunOptions
+                            # validation: never skip an escalation silently.
+                            try:
+                                wanted = await asyncio.wait_for(
+                                    self._router.decide(
+                                        safe_case,
+                                        RoutingContext(
+                                            current_stage=stage,
+                                            remaining_model_calls=0,
+                                            prior_decisions=tuple(decisions),
+                                            prior_attempts=tuple(feedback),
+                                        ),
+                                    ),
+                                    timeout=options.timeout_seconds,
+                                )
+                            except Exception:
+                                wanted = None
+                            if wanted is not None and wanted.action is RoutingAction.INVOKE_MODEL:
+                                add_step(
+                                    TraceStepKind.ERROR,
+                                    error=_error(
+                                        ErrorCategory.ROUTING, ESCALATION_SKIPPED_CALL_BUDGET
+                                    ),
+                                )
                         break
                     context = RoutingContext(
                         current_stage=stage,
@@ -343,6 +375,18 @@ class BenchmarkOrchestrator:
             add_step(TraceStepKind.ERROR, error=last_error)
 
         if last_successful_response is not None:
+            if (
+                status is not ExecutionStatus.BLOCKED
+                and response is not None
+                and response is not last_successful_response
+            ):
+                # Review #12 F2 (decision D-M02-F2): keep the lower-tier answer the
+                # user would realistically receive, but make the failed escalation
+                # visible and count the case as degraded, not as a clean success.
+                add_step(
+                    TraceStepKind.ERROR,
+                    error=_error(ErrorCategory.PROVIDER, ESCALATION_FAILED_RETAINED_LOWER_TIER),
+                )
             response = last_successful_response
         succeeded = response is not None and response.status is CallStatus.SUCCESS
         if status is not ExecutionStatus.BLOCKED:
@@ -510,6 +554,21 @@ class BenchmarkOrchestrator:
         return result, attempt_limit
 
 
+# Trace error codes for Cascade outcomes that would otherwise be silent (review #12).
+ESCALATION_FAILED_RETAINED_LOWER_TIER = "ESCALATION_FAILED_RETAINED_LOWER_TIER"
+ESCALATION_SKIPPED_CALL_BUDGET = "ESCALATION_SKIPPED_CALL_BUDGET"
+
+
+def is_degraded_trace(trace: ExecutionTrace) -> bool:
+    """COMPLETED only because a lower-tier answer was kept after a failed escalation."""
+    return trace.status is ExecutionStatus.COMPLETED and any(
+        step.kind is TraceStepKind.ERROR
+        and step.error is not None
+        and step.error.code == ESCALATION_FAILED_RETAINED_LOWER_TIER
+        for step in trace.steps
+    )
+
+
 _SAFE_CODE_PATTERN = re.compile(r"^[A-Za-z0-9_./-]{1,80}$")
 
 
@@ -549,6 +608,7 @@ def _summarize(
     traces: Sequence[ExecutionTrace], evaluations: Sequence[EvaluationResult]
 ) -> StrategyMetrics:
     completed = sum(t.status is ExecutionStatus.COMPLETED for t in traces)
+    degraded = sum(is_degraded_trace(t) for t in traces)
     blocked = sum(t.status is ExecutionStatus.BLOCKED for t in traces)
     failed = len(traces) - completed - blocked
     evaluated = [e for e in evaluations if e.status is EvaluationStatus.COMPLETED]
@@ -566,6 +626,7 @@ def _summarize(
     return StrategyMetrics(
         case_count=len(traces),
         successful_cases=completed,
+        degraded_cases=degraded,
         failed_cases=failed,
         blocked_cases=blocked,
         evaluated_cases=len(evaluated),

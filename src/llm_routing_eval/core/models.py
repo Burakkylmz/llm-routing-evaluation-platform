@@ -268,6 +268,9 @@ class StrategyMetrics(ImmutableModel):
     blocked_cases: NonNegativeCount
     evaluated_cases: NonNegativeCount
     critical_error_cases: NonNegativeCount
+    # Subset of successful_cases: completed only by keeping a lower-tier answer
+    # after a failed escalation. Strict success = successful - degraded.
+    degraded_cases: NonNegativeCount = 0
     quality_scores: dict[NonEmptyStr, Score | None] = Field(default_factory=dict)
     latency_p50_ms: NonNegativeMs | None = None
     latency_p95_ms: NonNegativeMs | None = None
@@ -281,6 +284,8 @@ class StrategyMetrics(ImmutableModel):
     def validate_coverage(self) -> Self:
         if self.successful_cases + self.failed_cases + self.blocked_cases > self.case_count:
             raise ValueError("Outcome counts exceed case_count")
+        if self.degraded_cases > self.successful_cases:
+            raise ValueError("degraded_cases cannot exceed successful_cases")
         if self.evaluated_cases > self.case_count or self.critical_error_cases > self.case_count:
             raise ValueError("Evaluation counts exceed case_count")
         if self.latency_samples > self.case_count:
