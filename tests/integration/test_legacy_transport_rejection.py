@@ -22,6 +22,14 @@ from llm_routing_eval.adapters.providers.nvidia_build import (
 )
 from llm_routing_eval.core import CallStatus, ModelRequest
 
+
+class AllowAllForTests:
+    """Test-only OutboundAuthorization. Never use outside offline tests."""
+
+    def authorize(self, request: object) -> bool:
+        return True
+
+
 MODEL = "openai/gpt-oss-120b"
 FAKE_KEY = "offline-test-only-secret"
 
@@ -120,6 +128,7 @@ def test_explicit_legacy_transport_fails_closed_before_network(
                 privacy_approved=True,
             ),
             transport=ForbiddenLegacyGroq(),
+            outbound_authorization=AllowAllForTests(),
         )
     else:
         provider = NvidiaBuildProvider(
@@ -129,6 +138,7 @@ def test_explicit_legacy_transport_fails_closed_before_network(
                 privacy_approved=True,
             ),
             transport=ForbiddenLegacyNvidia(),
+            outbound_authorization=AllowAllForTests(),
         )
 
     result = asyncio.run(provider.generate(_request(provider_name)))
@@ -156,6 +166,7 @@ def test_cancellable_transport_port_injection_still_works_offline(
                 privacy_approved=True,
             ),
             transport=AsyncGroqFixtureTransport(),
+            outbound_authorization=AllowAllForTests(),
         )
     else:
         provider = NvidiaBuildProvider(
@@ -165,6 +176,7 @@ def test_cancellable_transport_port_injection_still_works_offline(
                 privacy_approved=True,
             ),
             transport=AsyncNvidiaFixtureTransport(),
+            outbound_authorization=AllowAllForTests(),
         )
 
     result = asyncio.run(provider.generate(_request(provider_name)))
