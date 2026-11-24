@@ -77,7 +77,7 @@ def test_knn_routes_equivalent_turkish_case_variants_consistently() -> None:
         scenario_type="account_general",
         metadata={"synthetic": True},
     )
-    context = RoutingContext()
+    context = RoutingContext(current_stage=0, remaining_model_calls=2)
 
     decision = asyncio.run(router.decide(evaluation, context))
 
