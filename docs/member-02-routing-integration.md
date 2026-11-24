@@ -65,6 +65,35 @@ Implement four **interchangeable, explainable routing strategies** and reliable 
 4. Integrate **Groq** and verify controlled live calls; add **NVIDIA Build** compatibility tests in the secondary phase.
 5. Validate end-to-end benchmark integration with Members 01, 03, and 04.
 
+## F4 — Offline kNN development/evaluation isolation (Issue #19)
+
+The offline CLI applies the isolation policy **before** constructing the kNN
+index or writing output. Only approved development examples may be indexed;
+the active evaluation cases are never treated as calibration material.
+
+- Canonical case/example IDs are compared after Unicode NFKC and Turkish
+  casing normalization, plus whitespace folding.
+- Canonical text is compared using ephemeral SHA-256 digests after Unicode
+  NFKC, Turkish casing, punctuation and whitespace normalization. Only
+  comparison results remain in memory; no raw inputs or digest values are
+  printed or persisted by this guard.
+- A conservative SequenceMatcher check rejects **high-confidence near copies**
+  when both texts have at least 32 normalized characters, four tokens and
+  three shared tokens with similarity >= 0.94. This reduces easy one-character
+  bypasses but is **not a semantic paraphrase detector**.
+- Texts that cannot be normalized or exceed 4096 canonical characters are
+  rejected with stable reason codes instead of silently bypassing comparison.
+- CLI failure occurs before artifact creation, without emitting example texts.
+  Only kNN uses this policy; other routing strategies are unchanged.
+
+**Limits and required cross-team follow-up:** This only checks the examples
+supplied in the offline YAML against the cases loaded in the current demo run.
+It does **not** authenticate dataset provenance, exclude every near-paraphrase,
+or protect against contamination outside that active evaluation set. Member 03
+must supply versioned split metadata and immutable content provenance before
+golden-set benchmarking. Member 04 must validate privacy and persistence gates.
+Neither the offline guard nor green CI authorizes live provider traffic.
+
 ## F1 defense-in-depth — Legacy transport rejection (Issue #21)
 
 The built-in `GroqHttpTransport` and `NvidiaHttpTransport` use
