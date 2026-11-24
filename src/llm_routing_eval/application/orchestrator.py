@@ -49,7 +49,6 @@ from llm_routing_eval.core import (
     TraceStepKind,
 )
 
-
 # F9: positive minimum retry delay, bounded exponential growth and equal jitter.
 RETRY_BACKOFF_POLICY_VERSION = "bounded-equal-jitter-v1"
 _RETRY_BASE_SECONDS = 0.25
