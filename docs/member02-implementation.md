@@ -160,3 +160,27 @@ uv run llm-routing-eval calibrate-routing --examples examples/synthetic_developm
 - **Cascade:** a scenario escalates when its large-label share exceeds `--max-small-risk` (default 0.2) or when it has fewer than `--min-scenario-examples` examples (default 3).
 - **Safety:** before anything is written, the calibrated settings pass the strict loader, the **F4 isolation guard** against `--dataset`, and the router factory for both kNN and Cascade. The report contains IDs, counts, rates and the base/calibrated policy digests, never example text.
 - **Limits:** development labels are not a held-out quality result. The embedding is the lexical hashing embedding, not validated semantic retrieval. The input must be `synthetic: true` until a policy for real development data is agreed with Members 01, 03 and 04.
+
+
+## Calibration F4 preflight — no artifacts before isolation (Issue #39)
+
+`calibrate-routing` now validates every labeled development example
+against the active evaluation cases **before** embedding/index calibration,
+hyperparameter selection or any artifact write. The preflight uses the same
+normalized ID/text and conservative near-copy policy as the offline kNN
+`run` command. It checks the **candidate development examples** from the
+calibration JSON, rather than the possibly different examples in the base
+YAML. The final calibrated config is checked again before output as
+defense in depth.
+
+This matters when a kNN calibration is **infeasible**: the CLI may still
+write a text-free evidence report and return exit code 3, but **only after**
+the preflight overlap check succeeds. A development/evaluation collision
+must fail with `KNN_DEVELOPMENT_TEST_LEAKAGE`, exit code 2, and no generated
+report or configuration file. Synthetic offline regression tests cover
+normalized text and IDs, and verify the calibration embedder is not run
+when overlap is detected.
+
+String-level isolation cannot prove genuine held-out provenance or detect all
+semantic paraphrases. Member 03 dataset-version and split sign-off remains
+required; this change does not authorize real provider traffic.
