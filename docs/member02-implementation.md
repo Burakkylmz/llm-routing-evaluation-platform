@@ -62,10 +62,10 @@ held-out split provenance and evaluation methodology before any live benchmark.
 ## F9 — Positive retry backoff and versioned provenance (Issue #29)
 
 The application orchestrator previously used full jitter
-\`min(2, 2**index * random.random())\`, allowing a zero or near-zero
+`min(2, 2**index * random.random())`, allowing a zero or near-zero
 retry delay. The proposed F9 policy uses bounded exponential equal jitter:
-\`ceiling = min(2.0, 0.25 * 2**index)\` seconds and
-\`delay = ceiling * (0.5 + 0.5 * random.random())\`.
+`ceiling = min(2.0, 0.25 * 2**index)` seconds and
+`delay = ceiling * (0.5 + 0.5 * random.random())`.
 The first retry therefore waits at least 125 ms; subsequent retry
 ceilings grow exponentially up to two seconds. Randomization remains
 unseeded in production, but offline tests inject deterministic values and
@@ -73,8 +73,8 @@ a fake sleep callback.
 
 No sleep occurs after a success, non-retryable failure or final allowed
 attempt. The maximum retries and global model-call budget remain unchanged.
-The policy version \`bounded-equal-jitter-v1\` is recorded in report provenance
-and included in \`RunOptions.fingerprint()\` **only when retries are enabled**;
+The policy version `bounded-equal-jitter-v1` is recorded in report provenance
+and included in `RunOptions.fingerprint()` **only when retries are enabled**;
 zero-retry fingerprints retain their previous byte-for-byte representation.
 Historical fingerprints must never be rewritten or reinterpreted.
 
