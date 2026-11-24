@@ -161,6 +161,19 @@ uv run llm-routing-eval calibrate-routing --examples examples/synthetic_developm
 - **Safety:** before anything is written, the calibrated settings pass the strict loader, the **F4 isolation guard** against `--dataset`, and the router factory for both kNN and Cascade. The report contains IDs, counts, rates and the base/calibrated policy digests, never example text.
 - **Limits:** development labels are not a held-out quality result. The embedding is the lexical hashing embedding, not validated semantic retrieval. The input must be `synthetic: true` until a policy for real development data is agreed with Members 01, 03 and 04.
 
+## Four-strategy offline comparison (`compare-routing`)
+
+`compare-routing` runs Always-Large, Rule-Based, kNN and Cascade on the **same** synthetic cases, with the fake provider and evaluator. It writes one JSON report.
+
+```bash
+uv run llm-routing-eval compare-routing --output artifacts/offline_comparison.json
+```
+
+- **Same rules as a standalone `run`:** each strategy gets its own validated `RunOptions` from `demo_options` (never `model_copy`), so the Cascade budget guard (F3) and the per-strategy policy digest (F7) apply exactly as they would in a standalone run. All four option sets are validated before any strategy runs.
+- **F4 isolation:** kNN is always included, so the isolation guard always runs against `--dataset`.
+- **Per-strategy report:** success, **strict success** (excludes Cascade answers kept after a failed escalation, F2), degraded cases, provider attempts and attempts per case, calls by model, the simulated token totals and per-attempt averages (only when usage is complete), the fixture-only score, local timings, and the routing policy digest.
+- **Workload identity:** the dataset's content digest is recorded. Prompts and answers are never written.
+- **Limits:** this is an offline simulation. Cost is *unknown* (no verified pricing), not zero; timings are local, not provider latency; fixture-match is a contract check, not answer accuracy.
 
 ## Calibration F4 preflight — no artifacts before isolation (Issue #39)
 
