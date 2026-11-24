@@ -116,6 +116,52 @@ def test_cli_rejects_calibration_data_overlapping_evaluation_cases(tmp_path: Pat
     assert not config_out.exists() and not report.exists()
 
 
+
+@pytest.mark.parametrize("overlap_type", ["normalized_text", "case_id"])
+def test_infeasible_leaking_calibration_never_writes_report(
+    tmp_path: Path, overlap_type: str
+) -> None:
+    """F4 guard must precede even the infeasible calibration report path."""
+    data = _synthetic()
+    held_out = json.loads(DATASET.read_text(encoding="utf-8"))["cases"][0]
+    first = {**data["examples"][0], "example_id": "synthetic-cal-a", "tier": "small"}
+    second = {**data["examples"][0], "example_id": "synthetic-cal-b", "tier": "large"}
+    # Identical vectors with opposite labels => no kNN configuration has
+    # zero under-routing. Before this fix the CLI wrote an evidence artifact.
+    if overlap_type == "normalized_text":
+        first["input_text"] = "  " + held_out["input_text"].replace(" ", "   ") + " !!"
+        second["input_text"] = first["input_text"]
+    else:
+        first["example_id"] = held_out["case_id"]
+    data["examples"] = [first, second]
+
+    result, config_out, report = _invoke(
+        tmp_path, _write(tmp_path, data), "--max-under-routing-rate", "0"
+    )
+
+    assert result.exit_code == 2, result.output
+    assert "KNN_DEVELOPMENT_TEST_LEAKAGE" in result.output
+    assert not config_out.exists() and not report.exists()
+
+
+def test_calibration_isolation_runs_before_embedding(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Contaminated development data must never reach the embedding adapter."""
+    data = _synthetic()
+    held_out = json.loads(DATASET.read_text(encoding="utf-8"))["cases"][0]
+    data["examples"][0]["input_text"] = held_out["input_text"]
+
+    async def never_calibrate(*_args: object, **_kwargs: object) -> None:
+        raise AssertionError("calibration ran before development/evaluation isolation")
+
+    monkeypatch.setattr("llm_routing_eval.routing.calibration.calibrate_knn", never_calibrate)
+    result, config_out, report = _invoke(tmp_path, _write(tmp_path, data))
+    assert result.exit_code == 2, result.output
+    assert "KNN_DEVELOPMENT_TEST_LEAKAGE" in result.output
+    assert not config_out.exists() and not report.exists()
+
+
 @pytest.mark.parametrize(
     "mutate",
     [
