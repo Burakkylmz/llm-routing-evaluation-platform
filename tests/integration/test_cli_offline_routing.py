@@ -171,6 +171,7 @@ def test_invalid_strategy_or_live_config_fails_closed(tmp_path: Path) -> None:
     assert result.exit_code == 2
     assert "LIVE_MODE_NOT_IMPLEMENTED" in result.output
 
+
 @pytest.mark.parametrize("collision", ["case_id", "input_text"])
 def test_cascade_rejects_calibration_development_overlap_before_run(
     tmp_path: Path, collision: str
