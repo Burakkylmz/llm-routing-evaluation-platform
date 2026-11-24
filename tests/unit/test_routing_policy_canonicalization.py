@@ -50,9 +50,7 @@ def test_rule_scenario_membership_order_is_not_a_policy_change() -> None:
         )
 
     equivalent = _changed(different_order)
-    assert _digest(baseline, StrategyId.RULE_BASED) == _digest(
-        equivalent, StrategyId.RULE_BASED
-    )
+    assert _digest(baseline, StrategyId.RULE_BASED) == _digest(equivalent, StrategyId.RULE_BASED)
 
 
 def test_rule_priority_order_remains_material_to_fingerprint() -> None:
@@ -61,9 +59,7 @@ def test_rule_priority_order_remains_material_to_fingerprint() -> None:
             rules=tuple(reversed(raw["routing"]["rule_based"]["rules"]))
         )
     )
-    assert _digest(_settings(), StrategyId.RULE_BASED) != _digest(
-        reordered, StrategyId.RULE_BASED
-    )
+    assert _digest(_settings(), StrategyId.RULE_BASED) != _digest(reordered, StrategyId.RULE_BASED)
 
 
 def test_rule_scenario_membership_change_remains_material() -> None:
@@ -72,9 +68,7 @@ def test_rule_scenario_membership_change_remains_material() -> None:
             scenario_types=("fees_general",)
         )
     )
-    assert _digest(_settings(), StrategyId.RULE_BASED) != _digest(
-        changed, StrategyId.RULE_BASED
-    )
+    assert _digest(_settings(), StrategyId.RULE_BASED) != _digest(changed, StrategyId.RULE_BASED)
 
 
 def test_knn_development_list_order_is_not_a_policy_change() -> None:
@@ -83,9 +77,7 @@ def test_knn_development_list_order_is_not_a_policy_change() -> None:
             examples=tuple(reversed(raw["routing"]["knn"]["examples"]))
         )
     )
-    assert _digest(_settings(), StrategyId.KNN) == _digest(
-        reversed_examples, StrategyId.KNN
-    )
+    assert _digest(_settings(), StrategyId.KNN) == _digest(reversed_examples, StrategyId.KNN)
 
 
 @pytest.mark.parametrize("field", ["example_id", "input_text", "tier"])
@@ -96,19 +88,13 @@ def test_knn_example_identity_or_content_change_remains_material(field: str) -> 
         "tier": "large",
     }
     changed = _changed(
-        lambda raw: raw["routing"]["knn"]["examples"][0].update(
-            {field: new_values[field]}
-        )
+        lambda raw: raw["routing"]["knn"]["examples"][0].update({field: new_values[field]})
     )
-    assert _digest(_settings(), StrategyId.KNN) != _digest(
-        changed, StrategyId.KNN
-    )
+    assert _digest(_settings(), StrategyId.KNN) != _digest(changed, StrategyId.KNN)
 
 
 def test_knn_similarity_threshold_change_remains_material() -> None:
-    changed = _changed(
-        lambda raw: raw["routing"]["knn"].update(minimum_similarity=0.73)
-    )
+    changed = _changed(lambda raw: raw["routing"]["knn"].update(minimum_similarity=0.73))
     assert _digest(_settings(), StrategyId.KNN) != _digest(
         changed, StrategyId.KNN
     )
@@ -118,9 +104,7 @@ def test_knn_similarity_threshold_change_remains_material() -> None:
 def test_selected_policy_canonicalization_still_keeps_model_identity(
     strategy: StrategyId,
 ) -> None:
-    changed = _changed(
-        lambda raw: raw["routing"]["models"].update(small="other-offline-small")
-    )
+    changed = _changed(lambda raw: raw["routing"]["models"].update(small="other-offline-small"))
     assert _digest(_settings(), strategy) != _digest(changed, strategy)
 
 
