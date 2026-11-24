@@ -122,9 +122,7 @@ def test_knn_rejects_incorrect_index_embedding_counts(count: int) -> None:
         ((math.nan, 1.0), "non-finite"),
     ],
 )
-def test_knn_rejects_unsafe_development_vectors(
-    vector: tuple[float, ...], reason: str
-) -> None:
+def test_knn_rejects_unsafe_development_vectors(vector: tuple[float, ...], reason: str) -> None:
     with pytest.raises(ValueError, match=reason):
         asyncio.run(
             KnnRouter.prepare(
@@ -181,9 +179,7 @@ def test_knn_equal_similarity_neighbour_order_uses_stable_ids() -> None:
         ((1.0, 0.0), (1.0, 0.0)),
         ((1.0, 0.0),),
     )
-    router = asyncio.run(
-        KnnRouter.prepare(MODELS, embedder, (small, large), k=1)
-    )
+    router = asyncio.run(KnnRouter.prepare(MODELS, embedder, (small, large), k=1))
     selected = asyncio.run(router.decide(_case(), _context()))
     assert selected.selected_model == MODELS.large
     assert selected.reason_code == "KNN_LARGE"
