@@ -6,11 +6,9 @@ examples can be indexed for deterministic offline evaluation demonstrations.
 
 from __future__ import annotations
 
-from collections.abc import Sequence
-
 from llm_routing_eval.application import BenchmarkInputError
 from llm_routing_eval.cli.configuration import OfflineSettings
-from llm_routing_eval.core import BenchmarkCase, RouterPort, StrategyId
+from llm_routing_eval.core import RouterPort, StrategyId
 from llm_routing_eval.routing import (
     AlwaysLargeRouter,
     CascadeRouter,
@@ -21,19 +19,6 @@ from llm_routing_eval.routing import (
     RuleBasedRouter,
     ScenarioRule,
 )
-
-
-def enforce_development_isolation(
-    settings: OfflineSettings,
-    cases: Sequence[BenchmarkCase],
-) -> None:
-    """Reject obvious held-out leakage before creating the kNN index."""
-
-    case_ids = {case.case_id for case in cases}
-    case_texts = {case.input_text.strip() for case in cases}
-    for example in settings.routing.knn.examples:
-        if example.example_id in case_ids or example.input_text.strip() in case_texts:
-            raise BenchmarkInputError("KNN_DEVELOPMENT_TEST_LEAKAGE")
 
 
 async def build_offline_router(

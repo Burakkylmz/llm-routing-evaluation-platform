@@ -18,7 +18,8 @@ from llm_routing_eval.application import (
     BenchmarkPersistenceError,
 )
 from llm_routing_eval.cli.configuration import demo_options, read_settings
-from llm_routing_eval.cli.router_factory import build_offline_router, enforce_development_isolation
+from llm_routing_eval.cli.development_isolation import enforce_development_isolation
+from llm_routing_eval.cli.router_factory import build_offline_router
 from llm_routing_eval.core import BenchmarkCase, StrategyId
 from llm_routing_eval.demo.fakes import (
     AllowlistedDemoPrivacy,
