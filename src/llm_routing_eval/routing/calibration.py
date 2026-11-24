@@ -171,14 +171,18 @@ def calibrate_cascade(
     *,
     max_small_risk: float = 0.2,
     min_scenario_examples: int = 3,
+    known_scenarios: Sequence[str] = (),
 ) -> CascadeCalibration:
-    """Escalate a scenario after a small answer if small is too often insufficient."""
+    """Calibrate known scenarios; unseen configured risks remain escalated."""
     _validate_examples(examples)
     if not math.isfinite(max_small_risk) or not 0 <= max_small_risk <= 1:
         raise ValueError("SMALL_RISK_CEILING_INVALID")
     if isinstance(min_scenario_examples, bool) or not 1 <= min_scenario_examples <= 1000:
         raise ValueError("MIN_SCENARIO_EXAMPLES_INVALID")
-    counts: dict[str, list[int]] = {}
+    if any(not scenario.strip() for scenario in known_scenarios):
+        raise ValueError("CALIBRATION_SCENARIO_EMPTY")
+    # A configured escalation with no development evidence must not disappear.
+    counts: dict[str, list[int]] = {scenario: [0, 0] for scenario in known_scenarios}
     for ex in examples:
         entry = counts.setdefault(ex.scenario_type, [0, 0])
         entry[0] += 1
