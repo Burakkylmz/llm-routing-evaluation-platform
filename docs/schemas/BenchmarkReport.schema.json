@@ -54,6 +54,13 @@
           "title": "Critical Error Cases",
           "type": "integer"
         },
+        "degraded_cases": {
+          "default": 0,
+          "description": "Subset of successful_cases completed only by keeping a lower-tier answer after a failed Cascade escalation. Strict success = successful_cases - degraded_cases.",
+          "minimum": 0,
+          "title": "Degraded Cases",
+          "type": "integer"
+        },
         "quality_scores": {
           "additionalProperties": {
             "anyOf": [

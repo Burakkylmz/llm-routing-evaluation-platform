@@ -147,6 +147,10 @@ def run(
             f"CASES: {metric.case_count}, SUCCESS: {metric.successful_cases}, "
             f"FAILED: {metric.failed_cases}, BLOCKED: {metric.blocked_cases}"
         )
+        typer.echo(
+            f"STRICT_SUCCESS: {metric.successful_cases - metric.degraded_cases}, "
+            f"DEGRADED: {metric.degraded_cases} (lower-tier answer kept after failed escalation)"
+        )
         typer.echo("MODE: OFFLINE_SIMULATION; financial quality and API cost NOT measured")
         typer.echo(f"REPORT: {output}")
     except (BenchmarkInputError, BenchmarkPersistenceError, ValidationError) as exc:

@@ -187,6 +187,11 @@ def demo_options(
         raise BenchmarkInputError("KNN_DEVELOPMENT_EXAMPLES_REQUIRED")
     if strategy is StrategyId.CASCADE and settings.execution.max_model_calls_per_case < 2:
         raise BenchmarkInputError("CASCADE_REQUIRES_TWO_CALL_SLOTS")
+    if strategy is StrategyId.CASCADE and settings.execution.max_model_calls_per_case < 2 * (
+        settings.execution.max_retries + 1
+    ):
+        # Review #12 F3: small-stage retries must not starve the escalation stage.
+        raise BenchmarkInputError("CASCADE_CALL_BUDGET_TOO_SMALL_FOR_RETRIES")
     return RunOptions(
         strategy=strategy,
         provider="fake",
