@@ -201,6 +201,7 @@ def test_cancelled_backoff_does_not_generate_an_extra_provider_attempt() -> None
 def test_retry_policy_version_is_part_of_fingerprint_only_when_retries_enabled() -> None:
     no_retry = RunOptions(allowed_models=(MODEL,), max_retries=0)
     with_retry = RunOptions(allowed_models=(MODEL,), max_retries=1)
+
     def legacy_fingerprint(options: RunOptions) -> str:
         return (
             "sha256:"
