@@ -51,7 +51,8 @@ async def _post(
     timeout_seconds: float,
     max_bytes: int,
 ) -> tuple[int, bytes] | None:
-    """Return (status, body), or None if the success body exceeds ``max_bytes``.
+    """Return (status, body), or None if the success body exceeds ``max_bytes``
+    or uses an unexpected Content-Encoding.
 
     Raises ``httpx.TimeoutException`` / ``httpx.TransportError`` for the caller
     to map onto sanitized provider exceptions.
@@ -72,6 +73,13 @@ async def _post(
         if response.status_code != 200:
             # Never read provider error bodies; they may echo prompt text.
             return response.status_code, b""
+        # We request identity encoding. A compressed body would be expanded by
+        # aiter_bytes() before any size check (decompression bomb), so reject it
+        # from the headers. With no/identity encoding httpx applies no decoder,
+        # so every chunk below is exactly the bytes on the wire.
+        encoding = response.headers.get("Content-Encoding", "").strip().lower()
+        if encoding not in ("", "identity"):
+            return None
         body = bytearray()
         async for chunk in response.aiter_bytes(chunk_size=_CHUNK):
             if len(body) + len(chunk) > max_bytes:

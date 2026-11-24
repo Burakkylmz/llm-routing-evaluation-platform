@@ -416,3 +416,81 @@ def test_f3_cli_rejects_cascade_budget_that_starves_escalation(
     else:
         assert response.exit_code != 0
         assert "CASCADE_CALL_BUDGET_TOO_SMALL_FOR_RETRIES" in response.output
+
+
+@pytest.mark.parametrize("provider_id", ["groq", "nvidia_build"])
+def test_f1_compressed_response_is_rejected_before_decompression(
+    monkeypatch: pytest.MonkeyPatch, provider_id: str
+) -> None:
+    """Codex review on #18: a gzip bomb must not be expanded past the body cap."""
+    import gzip
+
+    monkeypatch.setenv("GROQ_API_KEY", SECRET)
+    monkeypatch.setenv("NVIDIA_API_KEY", SECRET)
+    bomb = gzip.compress(b"0" * 60_000_000)
+    assert len(bomb) < 100_000
+
+    class CountingStream(httpx.AsyncByteStream):
+        def __init__(self) -> None:
+            self.yielded = 0
+
+        async def __aiter__(self):  # type: ignore[no-untyped-def]
+            for start in range(0, len(bomb), 4096):
+                chunk = bomb[start : start + 4096]
+                self.yielded += len(chunk)
+                yield chunk
+
+    stream = CountingStream()
+
+    async def handler(_: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, headers={"Content-Encoding": "gzip"}, stream=stream)
+
+    async def run() -> ModelResponse:
+        async with managed_httpx_client(mock_transport=httpx.MockTransport(handler)) as client:
+            provider: GroqProvider | NvidiaBuildProvider
+            if provider_id == "groq":
+                provider = GroqProvider(
+                    GroqConfig(
+                        allowed_models=frozenset({LARGE}), live_enabled=True, privacy_approved=True
+                    ),
+                    transport=HttpxGroqTransport(client),
+                )
+            else:
+                provider = NvidiaBuildProvider(
+                    NvidiaBuildConfig(
+                        allowed_models=frozenset({LARGE}), live_enabled=True, privacy_approved=True
+                    ),
+                    transport=HttpxNvidiaTransport(client),
+                )
+            return await provider.generate(request(provider_id))
+
+    response = asyncio.run(run())
+    assert response.status is not CallStatus.SUCCESS
+    assert stream.yielded == 0  # rejected from headers; nothing read or decompressed
+
+
+@pytest.mark.parametrize("encoding", ["", "identity"])
+def test_f1_uncompressed_response_still_accepted(
+    monkeypatch: pytest.MonkeyPatch, encoding: str
+) -> None:
+    monkeypatch.setenv("GROQ_API_KEY", SECRET)
+    body = {
+        "model": LARGE,
+        "choices": [{"message": {"content": "ok"}, "finish_reason": "stop"}],
+    }
+
+    async def handler(_: httpx.Request) -> httpx.Response:
+        headers = {"Content-Encoding": encoding} if encoding else {}
+        return httpx.Response(200, headers=headers, content=json.dumps(body).encode())
+
+    async def run() -> ModelResponse:
+        async with managed_httpx_client(mock_transport=httpx.MockTransport(handler)) as client:
+            provider = GroqProvider(
+                GroqConfig(
+                    allowed_models=frozenset({LARGE}), live_enabled=True, privacy_approved=True
+                ),
+                transport=HttpxGroqTransport(client),
+            )
+            return await provider.generate(request("groq"))
+
+    assert asyncio.run(run()).status is CallStatus.SUCCESS
