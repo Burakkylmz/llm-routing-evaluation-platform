@@ -96,7 +96,7 @@ def test_rule_configuration_rejects_unsafe_and_duplicate_identifiers() -> None:
 def test_hashing_embedding_is_stable_and_normalized() -> None:
     embedder = HashingEmbedding(dimensions=64)
     first = asyncio.run(embedder.embed(("Banka HESABI",)))
-    repeated = asyncio.run(embedder.embed(("banka hesabi",)))
+    repeated = asyncio.run(embedder.embed(("banka hesabı",)))
     assert first == repeated
     assert len(first[0]) == 64
     assert sum(component**2 for component in first[0]) == pytest.approx(1)
