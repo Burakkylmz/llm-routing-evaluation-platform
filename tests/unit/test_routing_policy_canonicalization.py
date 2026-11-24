@@ -95,9 +95,7 @@ def test_knn_example_identity_or_content_change_remains_material(field: str) -> 
 
 def test_knn_similarity_threshold_change_remains_material() -> None:
     changed = _changed(lambda raw: raw["routing"]["knn"].update(minimum_similarity=0.73))
-    assert _digest(_settings(), StrategyId.KNN) != _digest(
-        changed, StrategyId.KNN
-    )
+    assert _digest(_settings(), StrategyId.KNN) != _digest(changed, StrategyId.KNN)
 
 
 @pytest.mark.parametrize("strategy", list(StrategyId))
