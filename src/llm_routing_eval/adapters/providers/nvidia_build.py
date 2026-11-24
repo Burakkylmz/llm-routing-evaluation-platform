@@ -95,6 +95,9 @@ class _RejectRedirects(HTTPRedirectHandler):
 class NvidiaHttpTransport:
     """Stdlib HTTPS transport; async wrapper keeps the application nonblocking.
 
+    WARNING (review #12 F1): the worker thread cannot be cancelled by a timeout,
+    so retries can overlap it. Never a default; prefer ``HttpxNvidiaTransport``.
+
     Does not follow redirects, restricts response size, and never reads error
     response bodies. The orchestrator, not the transport, controls retries.
     """
@@ -162,7 +165,8 @@ class NvidiaBuildProvider:
         transport: NvidiaTransportPort | None = None,
     ) -> None:
         self._config = config
-        self._transport = transport if transport is not None else NvidiaHttpTransport()
+        # Review #12 F1: no implicit thread-based default (see GroqProvider).
+        self._transport = transport
 
     async def generate(self, request: ModelRequest) -> ModelResponse:
         started = perf_counter()
@@ -199,6 +203,8 @@ class NvidiaBuildProvider:
         key = os.environ.get("NVIDIA_API_KEY", "").strip()
         if not key:
             return failed(ErrorCategory.PROVIDER, "NVIDIA_API_KEY_MISSING")
+        if self._transport is None:
+            return failed(ErrorCategory.PROVIDER, "NVIDIA_TRANSPORT_NOT_CONFIGURED")
 
         payload: dict[str, object] = {
             "model": request.model,

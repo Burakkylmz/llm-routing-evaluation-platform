@@ -4,7 +4,7 @@ version = "0.1.0"
 description = "Privacy-conscious evaluation of LLM routing strategies on controlled workloads"
 readme = "README.md"
 requires-python = ">=3.12,<4"
-dependencies = ["pydantic>=2.10,<3", "typer>=0.12,<1", "PyYAML>=6,<7"]
+dependencies = ["pydantic>=2.10,<3", "typer>=0.12,<1", "PyYAML>=6,<7", "httpx==0.28.1"]
 
 [project.scripts]
 llm-routing-eval = "llm_routing_eval.cli.app:app"
