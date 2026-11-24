@@ -140,6 +140,9 @@ def test_failed_escalations_reduce_strict_success_only_for_cascade() -> None:
     cascade = rows[StrategyId.CASCADE]
     assert (cascade.successful_cases, cascade.degraded_cases) == (2, 2)
     assert cascade.strict_successful_cases == 0
+    serialized = json.loads(report.model_dump_json())
+    cascade_json = next(row for row in serialized["strategies"] if row["strategy"] == "cascade")
+    assert cascade_json["strict_successful_cases"] == 0
     assert rows[StrategyId.ALWAYS_LARGE].successful_cases == 0  # large model is down
     assert rows[StrategyId.ALWAYS_LARGE].degraded_cases == 0
 
@@ -217,6 +220,10 @@ def test_cli_writes_four_rows_with_per_strategy_policy_digests(tmp_path: Path) -
     assert all(d and d.startswith("sha256:") for d in digests) and len(set(digests)) == 4
     assert report["execution_mode"] == "OFFLINE_SIMULATION"
     assert all(row["cost_amount"] is None for row in rows)
+    assert all(
+        row["strict_successful_cases"] == row["successful_cases"] - row["degraded_cases"]
+        for row in rows
+    )
 
 
 def test_cli_rejects_cascade_budget_that_starves_escalation(tmp_path: Path) -> None:
