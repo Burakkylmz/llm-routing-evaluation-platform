@@ -16,9 +16,9 @@ from llm_routing_eval.adapters.providers.groq import (
 )
 from llm_routing_eval.adapters.providers.nvidia_build import (
     NvidiaBuildConfig,
+    NvidiaBuildProvider,
     NvidiaHttpResult,
     NvidiaHttpTransport,
-    NvidiaBuildProvider,
 )
 from llm_routing_eval.core import CallStatus, ModelRequest
 
