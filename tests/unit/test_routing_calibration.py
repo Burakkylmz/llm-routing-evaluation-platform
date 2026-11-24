@@ -162,6 +162,27 @@ def test_cascade_escalates_risky_and_under_evidenced_scenarios() -> None:
         calibrate_cascade(examples, min_scenario_examples=0)
 
 
+def test_cascade_preserves_unseen_escalations_and_updates_observed_policy() -> None:
+    examples = (
+        ex(1, "safe1", "small", "observed_safe"),
+        ex(2, "safe2", "small", "observed_safe"),
+        ex(3, "safe3", "small", "observed_safe"),
+    )
+    result = calibrate_cascade(
+        examples,
+        known_scenarios=("unseen_guard", "observed_safe", "unseen_guard"),
+    )
+    evidence = {item.scenario_type: item for item in result.scenarios}
+    assert result.escalate_scenarios == ("unseen_guard",)
+    assert (evidence["unseen_guard"].examples, evidence["unseen_guard"].large_labels) == (0, 0)
+    assert evidence["unseen_guard"].reason == "INSUFFICIENT_EVIDENCE"
+    assert evidence["observed_safe"].reason == "ACCEPT_SMALL"
+    assert evidence["observed_safe"].escalate is False
+
+    with pytest.raises(ValueError, match="CALIBRATION_SCENARIO_EMPTY"):
+        calibrate_cascade(examples, known_scenarios=("",))
+
+
 def test_example_and_dataset_validation() -> None:
     with pytest.raises(ValueError, match="HELD_OUT_DATA_FORBIDDEN_IN_CALIBRATION"):
         CalibrationExample("x", "t", "s", "small", split="test")  # type: ignore[arg-type]
