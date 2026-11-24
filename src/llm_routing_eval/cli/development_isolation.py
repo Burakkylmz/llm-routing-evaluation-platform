@@ -90,7 +90,6 @@ def enforce_development_isolation(
         if _content_fingerprint(development_text) in case_fingerprints:
             raise BenchmarkInputError("KNN_DEVELOPMENT_TEST_LEAKAGE")
         if any(
-            _is_high_confidence_near_copy(development_text, case_text)
-            for case_text in case_texts
+            _is_high_confidence_near_copy(development_text, case_text) for case_text in case_texts
         ):
             raise BenchmarkInputError("KNN_DEVELOPMENT_TEST_LEAKAGE")
