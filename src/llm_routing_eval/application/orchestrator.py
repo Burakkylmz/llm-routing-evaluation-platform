@@ -19,23 +19,6 @@ from uuid import uuid4
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-# F9: positive minimum retry delay, bounded exponential growth and equal jitter.
-RETRY_BACKOFF_POLICY_VERSION = "bounded-equal-jitter-v1"
-_RETRY_BASE_SECONDS = 0.25
-_RETRY_CAP_SECONDS = 2.0
-
-
-def _retry_backoff_seconds(retry_index: int, jitter: float) -> float:
-    """Delay before the next retry; jitter is a sampled uniform [0, 1) value.
-
-    Unlike full jitter, equal jitter never reaches zero; worst-case bursts
-    from concurrent retrying clients are reduced without extending the
-    configured retry or provider-call budget.
-    """
-    ceiling = min(_RETRY_CAP_SECONDS, _RETRY_BASE_SECONDS * (2**retry_index))
-    return ceiling * (0.5 + 0.5 * jitter)
-
-
 from llm_routing_eval.core import (
     BenchmarkCase,
     BenchmarkReport,
@@ -65,6 +48,23 @@ from llm_routing_eval.core import (
     TraceStep,
     TraceStepKind,
 )
+
+
+# F9: positive minimum retry delay, bounded exponential growth and equal jitter.
+RETRY_BACKOFF_POLICY_VERSION = "bounded-equal-jitter-v1"
+_RETRY_BASE_SECONDS = 0.25
+_RETRY_CAP_SECONDS = 2.0
+
+
+def _retry_backoff_seconds(retry_index: int, jitter: float) -> float:
+    """Delay before the next retry; jitter is a sampled uniform [0, 1) value.
+
+    Unlike full jitter, equal jitter never reaches zero; worst-case bursts
+    from concurrent retrying clients are reduced without extending the
+    configured retry or provider-call budget.
+    """
+    ceiling = min(_RETRY_CAP_SECONDS, _RETRY_BASE_SECONDS * (2**retry_index))
+    return ceiling * (0.5 + 0.5 * jitter)
 
 
 class RunOptions(BaseModel):
