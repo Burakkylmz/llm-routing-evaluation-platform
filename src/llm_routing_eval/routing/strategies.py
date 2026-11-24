@@ -15,12 +15,16 @@ from typing import Literal
 
 from llm_routing_eval.core import (
     BenchmarkCase,
-    CallStatus,
     EmbeddingPort,
     RoutingAction,
     RoutingContext,
     RoutingDecision,
     StrategyId,
+)
+from llm_routing_eval.routing.cascade_policy import (
+    CascadeEscalationDecision,
+    CascadeEscalationPolicy,
+    ConfiguredCascadeEscalationPolicy,
 )
 
 ModelTier = Literal["small", "large"]
@@ -286,12 +290,21 @@ class CascadeRouter:
         *,
         escalate_scenarios: frozenset[str] = frozenset(),
         escalate_on_failure: bool = True,
+        escalation_policy: CascadeEscalationPolicy | None = None,
     ) -> None:
-        if any(not item.strip() for item in escalate_scenarios):
-            raise ValueError("Escalation scenarios must be nonempty")
+        # Keep the existing configuration interface, but permit a typed local
+        # policy extension without editing stage orchestration or Core ports.
+        if escalation_policy is not None and (escalate_scenarios or not escalate_on_failure):
+            raise ValueError("CUSTOM_CASCADE_POLICY_CONFIGURATION_CONFLICT")
         self._models = models
-        self._escalate_scenarios = escalate_scenarios
-        self._escalate_on_failure = escalate_on_failure
+        self._escalation_policy: CascadeEscalationPolicy = (
+            escalation_policy
+            if escalation_policy is not None
+            else ConfiguredCascadeEscalationPolicy(
+                escalate_scenarios=escalate_scenarios,
+                escalate_on_failure=escalate_on_failure,
+            )
+        )
 
     async def decide(self, case: BenchmarkCase, context: RoutingContext) -> RoutingDecision:
         start = perf_counter()
@@ -299,14 +312,11 @@ class CascadeRouter:
             tier: ModelTier | None = "small"
             reason = "CASCADE_SMALL_FIRST"
         elif context.current_stage == 1 and context.prior_attempts:
-            last = context.prior_attempts[-1]
-            if last.status is CallStatus.SUCCESS:
-                escalate = case.scenario_type in self._escalate_scenarios
-                reason = "CASCADE_SCENARIO" if escalate else "CASCADE_ACCEPT_SMALL"
-            else:
-                escalate = self._escalate_on_failure
-                reason = "CASCADE_FAILOVER" if escalate else "CASCADE_STOP_FAILURE"
-            tier = "large" if escalate else None
+            outcome = self._escalation_policy.evaluate(case, context.prior_attempts[-1])
+            if not isinstance(outcome, CascadeEscalationDecision):
+                raise ValueError("INVALID_CASCADE_POLICY_DECISION")
+            tier = "large" if outcome.escalate else None
+            reason = outcome.reason_code
         else:
             tier = None
             reason = "CASCADE_DONE"
