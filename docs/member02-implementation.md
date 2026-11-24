@@ -57,3 +57,31 @@ strategies across versions; existing results must not be silently relabeled.
 The adapter remains **lexical rather than semantic** and is intended only for
 synthetic, offline Turkish banking evaluation. Member 03 must still approve
 held-out split provenance and evaluation methodology before any live benchmark.
+
+
+## F5 — Extensible Cascade escalation policy (Issue #31)
+
+`CascadeRouter` now coordinates the existing small-first, stage-one, then
+finish routing sequence while delegating *why to escalate* to a typed local
+`CascadeEscalationPolicy`. The immutable default policy
+`ConfiguredCascadeEscalationPolicy` preserves the original scenario match
+and failure-based escalation choices and exact machine-readable reason codes:
+`CASCADE_SCENARIO`, `CASCADE_ACCEPT_SMALL`, `CASCADE_FAILOVER` and
+`CASCADE_STOP_FAILURE`. Stage zero and terminal-stage codes are unchanged.
+
+A caller may inject a separately implemented policy into `CascadeRouter`
+without editing its stage coordination or the shared `RouterPort` contract.
+Injected policy decisions are validated, including a boolean escalation flag
+and an allowlisted uppercase reason code; unsafe, ambiguous or invalid
+configurations fail closed. Existing YAML, production provider wiring and
+routing fingerprints are unchanged: the current offline CLI **only** constructs
+the configured built-in policy. No arbitrary policy plugin is loaded from YAML.
+
+**Scope of this F5 deliverable:** the strategy implementation is now open
+for controlled local escalation-policy extension. The application
+orchestrator still explicitly distinguishes Cascade from one-stage baselines
+for retries and multi-stage accounting. That is **Member 01's responsibility**
+and cannot safely be removed without a separately agreed Core/RouterPort
+capability contract, call-budget semantics, fingerprinting and integration
+tests. This refactoring does not claim to resolve that cross-team OCP concern,
+nor does it authorize live model calls.
