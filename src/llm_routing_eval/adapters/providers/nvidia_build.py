@@ -205,6 +205,10 @@ class NvidiaBuildProvider:
             return failed(ErrorCategory.PROVIDER, "NVIDIA_API_KEY_MISSING")
         if self._transport is None:
             return failed(ErrorCategory.PROVIDER, "NVIDIA_TRANSPORT_NOT_CONFIGURED")
+        # Built-in urllib/to_thread transport cannot be cancelled between
+        # retries. Fail closed even if a caller explicitly injects it.
+        if isinstance(self._transport, NvidiaHttpTransport):
+            return failed(ErrorCategory.PROVIDER, "NVIDIA_UNSAFE_THREAD_TRANSPORT")
 
         payload: dict[str, object] = {
             "model": request.model,
