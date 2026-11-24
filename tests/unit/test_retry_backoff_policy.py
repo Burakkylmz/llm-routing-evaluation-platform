@@ -117,9 +117,7 @@ def test_zero_jitter_still_waits_between_retryable_attempts(
     result = asyncio.run(engine.run((_case(),), opts))
 
     attempts = [
-        item
-        for item in result.traces[0].steps
-        if item.kind is TraceStepKind.PROVIDER_ATTEMPT
+        item for item in result.traces[0].steps if item.kind is TraceStepKind.PROVIDER_ATTEMPT
     ]
     assert observed_delays == pytest.approx([0.125, 0.25, 0.5])
     assert len(attempts) == len(provider.attempts) == len(set(provider.attempts)) == 4
@@ -167,9 +165,12 @@ def test_no_extra_sleep_when_success_not_retryable_or_budget_exhausted(
     assert len(provider.attempts) == expected_calls
     assert len(delays) == max(0, expected_calls - 1)
     assert all(wait >= 0.125 for wait in delays)
-    assert len(
-        [step for step in result.traces[0].steps if step.kind is TraceStepKind.PROVIDER_ATTEMPT]
-    ) == expected_calls
+    assert (
+        len(
+            [step for step in result.traces[0].steps if step.kind is TraceStepKind.PROVIDER_ATTEMPT]
+        )
+        == expected_calls
+    )
 
 
 def test_cancelled_backoff_does_not_generate_an_extra_provider_attempt() -> None:
@@ -191,9 +192,7 @@ def test_cancelled_backoff_does_not_generate_an_extra_provider_attempt() -> None
         asyncio.run(
             engine.run(
                 (_case(),),
-                RunOptions(
-                    allowed_models=(MODEL,), max_retries=1, max_model_calls_per_case=2
-                ),
+                RunOptions(allowed_models=(MODEL,), max_retries=1, max_model_calls_per_case=2),
             )
         )
     assert len(provider.attempts) == 1
@@ -203,13 +202,16 @@ def test_retry_policy_version_is_part_of_fingerprint_only_when_retries_enabled()
     no_retry = RunOptions(allowed_models=(MODEL,), max_retries=0)
     with_retry = RunOptions(allowed_models=(MODEL,), max_retries=1)
     def legacy_fingerprint(options: RunOptions) -> str:
-        return "sha256:" + hashlib.sha256(
-            json.dumps(
-                options.model_dump(mode="json"),
-                sort_keys=True,
-                separators=(",", ":"),
-            ).encode()
-        ).hexdigest()
+        return (
+            "sha256:"
+            + hashlib.sha256(
+                json.dumps(
+                    options.model_dump(mode="json"),
+                    sort_keys=True,
+                    separators=(",", ":"),
+                ).encode()
+            ).hexdigest()
+        )
 
     assert no_retry.fingerprint() == legacy_fingerprint(no_retry)
     assert with_retry.fingerprint() != legacy_fingerprint(with_retry)
