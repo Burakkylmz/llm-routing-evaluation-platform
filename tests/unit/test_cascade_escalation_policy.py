@@ -154,8 +154,15 @@ class CustomPolicy:
     ) -> CascadeEscalationDecision:
         self.calls += 1
         return CascadeEscalationDecision(
-            escalate=(case.scenario_type == "synthetic_special" and feedback.status is CallStatus.SUCCESS),
-            reason_code="CUSTOM_ESCALATE" if case.scenario_type == "synthetic_special" else "CUSTOM_ACCEPT",
+            escalate=(
+                case.scenario_type == "synthetic_special"
+                and feedback.status is CallStatus.SUCCESS
+            ),
+            reason_code=(
+                "CUSTOM_ESCALATE"
+                if case.scenario_type == "synthetic_special"
+                else "CUSTOM_ACCEPT"
+            ),
         )
 
 
