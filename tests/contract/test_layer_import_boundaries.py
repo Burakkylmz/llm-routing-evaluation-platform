@@ -86,14 +86,35 @@ def _imports(tree: ast.AST, package: str) -> list[str]:
 
 
 def _has_dynamic_import(tree: ast.AST) -> bool:
-    for node in ast.walk(tree):
+    """Reject direct and common aliased dynamic-import calls without executing code."""
+    nodes = tuple(ast.walk(tree))
+    builtins_names = {"builtins"}
+    import_functions = {"__import__", "import_module"}
+    for node in nodes:
+        if isinstance(node, ast.Import):
+            builtins_names.update(
+                alias.asname or alias.name for alias in node.names if alias.name == "builtins"
+            )
+        elif isinstance(node, ast.ImportFrom) and node.level == 0 and node.module == "builtins":
+            import_functions.update(
+                alias.asname or alias.name for alias in node.names if alias.name == "__import__"
+            )
+
+    for node in nodes:
         if not isinstance(node, ast.Call):
             continue
         func = node.func
-        if isinstance(func, ast.Name) and func.id in {"__import__", "import_module"}:
+        if isinstance(func, ast.Name) and func.id in import_functions:
             return True
-        if isinstance(func, ast.Attribute) and func.attr == "import_module":
-            return True
+        if isinstance(func, ast.Attribute):
+            if func.attr == "import_module":
+                return True
+            if (
+                func.attr == "__import__"
+                and isinstance(func.value, ast.Name)
+                and func.value.id in builtins_names
+            ):
+                return True
     return False
 
 
@@ -170,6 +191,21 @@ def test_layer_respects_dependency_direction(layer: str) -> None:
             "from importlib import import_module as f\nf(n)",
         ),
         ("adapters/providers", "llm_routing_eval.adapters.providers", "__import__(name)"),
+        (
+            "routing",
+            "llm_routing_eval.routing",
+            'import builtins\\nbuiltins.__import__("llm_routing_eval.adapters.providers.groq")',
+        ),
+        (
+            "application",
+            "llm_routing_eval.application",
+            'import builtins as alias\\nalias.__import__("llm_routing_eval.adapters.providers.groq")',
+        ),
+        (
+            "routing",
+            "llm_routing_eval.routing",
+            "from builtins import __import__ as load\\nload(name)",
+        ),
     ],
 )
 def test_known_bypasses_are_detected(layer: str, package: str, source: str) -> None:
@@ -190,6 +226,12 @@ def test_known_bypasses_are_detected(layer: str, package: str, source: str) -> N
         ("adapters/providers", "llm_routing_eval.adapters.providers", "import httpx"),
         ("application", "llm_routing_eval.application", "from .orchestrator import RunOptions"),
         ("application", "llm_routing_eval.application", "import pydantic"),
+        ("routing", "llm_routing_eval.routing", "import builtins\\nbuiltins.len([1, 2])"),
+        (
+            "application",
+            "llm_routing_eval.application",
+            "from builtins import len as safe_len\\nsafe_len([1, 2])",
+        ),
     ],
 )
 def test_allowed_imports_pass(layer: str, package: str, source: str) -> None:
