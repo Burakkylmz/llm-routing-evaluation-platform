@@ -32,9 +32,7 @@ class CascadeEscalationDecision:
 class CascadeEscalationPolicy(Protocol):
     """Extension point: choose whether stage one should escalate."""
 
-    def evaluate(
-        self, case: BenchmarkCase, feedback: RoutingFeedback
-    ) -> CascadeEscalationDecision: ...
+    def evaluate(self, case: BenchmarkCase, feedback: RoutingFeedback) -> CascadeEscalationDecision: ...
 
 
 @dataclass(frozen=True, slots=True)
@@ -48,9 +46,7 @@ class ConfiguredCascadeEscalationPolicy:
         if any(not name.strip() for name in self.escalate_scenarios):
             raise ValueError("Escalation scenarios must be nonempty")
 
-    def evaluate(
-        self, case: BenchmarkCase, feedback: RoutingFeedback
-    ) -> CascadeEscalationDecision:
+    def evaluate(self, case: BenchmarkCase, feedback: RoutingFeedback) -> CascadeEscalationDecision:
         if feedback.status is CallStatus.SUCCESS:
             escalate = case.scenario_type in self.escalate_scenarios
             return CascadeEscalationDecision(
