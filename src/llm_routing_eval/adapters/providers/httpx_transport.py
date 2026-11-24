@@ -38,6 +38,7 @@ from .nvidia_build import (
     NvidiaTransportError,
     NvidiaTransportTimeout,
 )
+from .retry_after import parse_retry_after
 
 _CHUNK = 65_536
 
@@ -50,9 +51,11 @@ async def _post(
     api_key: str,
     timeout_seconds: float,
     max_bytes: int,
-) -> tuple[int, bytes] | None:
-    """Return (status, body), or None if the success body exceeds ``max_bytes``
-    or uses an unexpected Content-Encoding.
+) -> tuple[int, bytes, float | None] | None:
+    """Return (status, body, retry_after_seconds), or None if the success body
+    exceeds ``max_bytes`` or uses an unexpected Content-Encoding.
+
+    ``retry_after_seconds`` is parsed only for HTTP 429 (numeric form only).
 
     Raises ``httpx.TimeoutException`` / ``httpx.TransportError`` for the caller
     to map onto sanitized provider exceptions.
@@ -71,8 +74,10 @@ async def _post(
         follow_redirects=False,
     ) as response:
         if response.status_code != 200:
-            # Never read provider error bodies; they may echo prompt text.
-            return response.status_code, b""
+            # Never read provider error bodies; they may echo prompt text. Only
+            # the numeric Retry-After header of a 429 is inspected.
+            hint = parse_retry_after(response.headers) if response.status_code == 429 else None
+            return response.status_code, b"", hint
         # We request identity encoding. A compressed body would be expanded by
         # aiter_bytes() before any size check (decompression bomb), so reject it
         # from the headers. With no/identity encoding httpx applies no decoder,
@@ -85,7 +90,7 @@ async def _post(
             if len(body) + len(chunk) > max_bytes:
                 return None
             body.extend(chunk)
-        return 200, bytes(body)
+        return 200, bytes(body), None
 
 
 class HttpxGroqTransport:
@@ -116,7 +121,7 @@ class HttpxGroqTransport:
             raise GroqTransportError from None
         if result is None:
             raise GroqTransportError("GROQ_RESPONSE_TOO_LARGE")
-        return GroqHttpResult(status_code=result[0], body=result[1])
+        return GroqHttpResult(status_code=result[0], body=result[1], retry_after_seconds=result[2])
 
 
 class HttpxNvidiaTransport:
@@ -147,7 +152,9 @@ class HttpxNvidiaTransport:
             raise NvidiaTransportError from None
         if result is None:
             raise NvidiaTransportError("NVIDIA_RESPONSE_TOO_LARGE")
-        return NvidiaHttpResult(status_code=result[0], body=result[1])
+        return NvidiaHttpResult(
+            status_code=result[0], body=result[1], retry_after_seconds=result[2]
+        )
 
 
 @asynccontextmanager
