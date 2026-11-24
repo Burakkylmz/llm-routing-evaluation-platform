@@ -19,6 +19,23 @@ from uuid import uuid4
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+# F9: positive minimum retry delay, bounded exponential growth and equal jitter.
+RETRY_BACKOFF_POLICY_VERSION = "bounded-equal-jitter-v1"
+_RETRY_BASE_SECONDS = 0.25
+_RETRY_CAP_SECONDS = 2.0
+
+
+def _retry_backoff_seconds(retry_index: int, jitter: float) -> float:
+    """Delay before the next retry; jitter is a sampled uniform [0, 1) value.
+
+    Unlike full jitter, equal jitter never reaches zero; worst-case bursts
+    from concurrent retrying clients are reduced without extending the
+    configured retry or provider-call budget.
+    """
+    ceiling = min(_RETRY_CAP_SECONDS, _RETRY_BASE_SECONDS * (2**retry_index))
+    return ceiling * (0.5 + 0.5 * jitter)
+
+
 from llm_routing_eval.core import (
     BenchmarkCase,
     BenchmarkReport,
@@ -89,6 +106,10 @@ class RunOptions(BaseModel):
 
     def fingerprint(self) -> str:
         payload = self.model_dump(mode="json")
+        if self.max_retries > 0:
+            # Backoff changes observable latency; fingerprint the selected
+            # policy without modifying the public RunOptions schema.
+            payload["retry_backoff_policy_version"] = RETRY_BACKOFF_POLICY_VERSION
         return (
             "sha256:"
             + hashlib.sha256(
@@ -182,6 +203,9 @@ class BenchmarkOrchestrator:
                 "execution_mode": "offline_demo" if options.provider == "fake" else "configured",
                 "prompt_version": options.prompt_version,
                 "privacy_boundary": "pre-routing and pre-provider",
+                "retry_backoff_policy": (
+                    RETRY_BACKOFF_POLICY_VERSION if options.max_retries else "no_retries"
+                ),
                 "dataset_identifiers_sha256": hashlib.sha256(
                     json.dumps(
                         [case.case_id for case in cases],
@@ -547,9 +571,9 @@ class BenchmarkOrchestrator:
                 result.error is not None and result.error.retryable and index + 1 < attempt_limit
             ):
                 return result, index + 1
-            # Bounded exponential backoff + jitter; provider Retry-After support belongs
-            # in a later provider policy extension, not the fake provider.
-            await self._sleep(min(2.0, (2**index) * random.random()))
+            # Strictly positive exponential equal-jitter wait prevents retry
+            # bursts; Retry-After handling requires a separate provider policy.
+            await self._sleep(_retry_backoff_seconds(index, random.random()))
         assert result is not None
         return result, attempt_limit
 
