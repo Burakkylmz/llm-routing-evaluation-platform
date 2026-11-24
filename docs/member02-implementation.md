@@ -175,6 +175,19 @@ uv run llm-routing-eval compare-routing --output artifacts/offline_comparison.js
 - **Workload identity:** the dataset's content digest is recorded. Prompts and answers are never written.
 - **Limits:** this is an offline simulation. Cost is *unknown* (no verified pricing), not zero; timings are local, not provider latency; fixture-match is a contract check, not answer accuracy.
 
+## Groq live-readiness preflight (`groq-preflight`)
+
+`groq-preflight` lists every blocker between this repository and a live Groq benchmark. It makes **no network call** and only checks whether `GROQ_API_KEY` is set; it never prints or stores the key.
+
+```bash
+uv run llm-routing-eval groq-preflight          # human-readable
+uv run llm-routing-eval groq-preflight --json   # machine-readable
+```
+
+- **Local checks:** the Groq provider is enabled (`config/providers.yaml`); routing models match the Groq candidate models; execution is `live` with `live_enabled`; `GROQ_API_KEY` is set; pricing is `verified` with input and output rates for both candidate models (`config/pricing.yaml`).
+- **External blockers, always listed, each with an owner:** outbound privacy authorization (Member 04), expert evaluation (Member 03), model/account access recorded by a live smoke test (Member 02), and the live CLI path (Member 01).
+- **Always BLOCKED.** These approvals cannot be inferred from a local toggle or a working key, so the command always exits `2` with `GROQ_PREFLIGHT_STATUS: BLOCKED`. CI asserts this. Invalid configuration exits `3`.
+
 ## Calibration F4 preflight — no artifacts before isolation (Issue #39)
 
 `calibrate-routing` now validates every labeled development example

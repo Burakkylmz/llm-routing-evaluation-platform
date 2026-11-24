@@ -41,4 +41,13 @@ jobs:
             --report artifacts/ci_routing_calibration_report.json
           uv run --locked llm-routing-eval validate-config \
             --config artifacts/ci_settings.calibrated.yaml --strategy knn
+      - name: Groq preflight must stay BLOCKED (offline)
+        run: |
+          mkdir -p artifacts
+          set +e
+          uv run --locked llm-routing-eval groq-preflight > artifacts/ci_groq_preflight.txt
+          result=$?
+          set -e
+          test "$result" -eq 2
+          grep -q "GROQ_PREFLIGHT_STATUS: BLOCKED" artifacts/ci_groq_preflight.txt
 # Docker build/run checks are owned by Member 04 and remain to be added.
